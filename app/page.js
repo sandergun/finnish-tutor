@@ -10,28 +10,26 @@ export default function Home() {
   const { user, loading, loadUser } = useUserStore()
 
   useEffect(() => {
-    // Получаем данные из Telegram WebApp
     const tg = window.Telegram?.WebApp
-    
+
     if (tg) {
       tg.ready()
       tg.expand()
-      
-      const user = tg.initDataUnsafe?.user
-      
-      if (user?.id) {
-        setTelegramId(user.id)
-        loadUser(user.id)
+
+      const tgUser = tg.initDataUnsafe?.user
+
+      if (tgUser?.id) {
+        setTelegramId(tgUser.id)
+        loadUser(tgUser.id)
       }
     } else {
-      // Для тестирования локально
       const testId = Math.floor(Math.random() * 1000000000)
       setTelegramId(testId)
       loadUser(testId)
     }
   }, [loadUser])
 
-  if (loading) {
+  if (loading || !telegramId) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-blue-600">
         <div className="text-white text-center">
@@ -42,7 +40,7 @@ export default function Home() {
     )
   }
 
-  if (!user || !user.name || user.name === 'Пользователь') {
+  if (!user?.name) {
     return <WelcomeScreen telegramId={telegramId} />
   }
 

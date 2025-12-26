@@ -3,23 +3,35 @@ import { supabase } from '@/lib/supabase'
 
 export const useUserStore = create((set, get) => ({
   user: null,
-  loading: true,
-  
+  loading: false,
+
   // Загрузка пользователя
   loadUser: async (telegramId) => {
+    set({ loading: true })
+
     try {
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('telegram_id', telegramId)
-        .single()
-      
-      if (error && error.code === 'PGRST116') {
-        // Пользователь не найден - создадим нового
-        return get().createUser(telegramId)
-      }
-      
+        .maybeSingle()
+
       if (error) throw error
+
+      if (!data) {
+        // пользователь не существует — создаём БЕЗ имени
+        const { data: newUser, error: insertError } = await supabase
+          .from('users')
+          .insert({ telegram_id: telegramId })
+          .select()
+          .single()
+
+        if (insertError) throw insertError
+
+        set({ user: newUser, loading: false })
+        return newUser
+      }
+
       set({ user: data, loading: false })
       return data
     } catch (error) {
@@ -28,30 +40,12 @@ export const useUserStore = create((set, get) => ({
       return null
     }
   },
-  
-  // Создание пользователя
-  createUser: async (telegramId, name = 'Пользователь') => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .insert([{ telegram_id: telegramId, name }])
-        .select()
-        .single()
-      
-      if (error) throw error
-      set({ user: data, loading: false })
-      return data
-    } catch (error) {
-      console.error('Error creating user:', error)
-      return null
-    }
-  },
-  
-  // Обновление профиля
+
+  // Обновление профиля (имя, уровень и т.д.)
   updateProfile: async (updates) => {
     const user = get().user
-    if (!user) return
-    
+    if (!user) return null
+
     try {
       const { data, error } = await supabase
         .from('users')
@@ -59,8 +53,9 @@ export const useUserStore = create((set, get) => ({
         .eq('telegram_id', user.telegram_id)
         .select()
         .single()
-      
+
       if (error) throw error
+
       set({ user: data })
       return data
     } catch (error) {
