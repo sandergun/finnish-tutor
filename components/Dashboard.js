@@ -44,7 +44,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Хедер */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-4">
@@ -58,7 +57,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Прогресс */}
           <div className="bg-white/20 backdrop-blur rounded-full h-3 overflow-hidden mb-2">
             <div 
               className="bg-white h-full transition-all duration-500"
@@ -69,7 +67,6 @@ export default function Dashboard() {
             {todayCompleted ? '✓ Урок на сегодня выполнен!' : 'Выполни урок сегодня'}
           </p>
 
-          {/* Статистика */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-white/10 backdrop-blur rounded-lg p-3 text-center">
               <div className="text-2xl font-bold">{user?.total_lessons || 0}</div>
@@ -85,19 +82,19 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Последние достижения */}
           {achievements.length > 0 && (
             <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
               {achievements.slice(0, 5).map((ach) => {
                 const achievementData = ACHIEVEMENTS[ach.achievement_type]
+                if (!achievementData) return null
                 return (
                   <button
                     key={ach.id}
                     onClick={() => setShowAchievement(achievementData)}
                     className="bg-white/20 backdrop-blur rounded-lg p-3 flex-shrink-0 hover:bg-white/30 transition"
                   >
-                    <div className="text-2xl mb-1">{achievementData?.icon}</div>
-                    <p className="text-xs font-semibold">{achievementData?.name}</p>
+                    <div className="text-2xl mb-1">{achievementData.icon}</div>
+                    <p className="text-xs font-semibold">{achievementData.name}</p>
                   </button>
                 )
               })}
@@ -106,7 +103,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Контент */}
       <div className="max-w-4xl mx-auto px-4 py-6">
         {activeTab === 'lesson' && <LessonTab />}
         {activeTab === 'leaderboard' && <LeaderboardTab />}
@@ -114,7 +110,6 @@ export default function Dashboard() {
         {activeTab === 'profile' && <ProfileTab />}
       </div>
 
-      {/* Модалка достижения */}
       {showAchievement && (
         <AchievementModal
           achievement={showAchievement}
@@ -122,7 +117,6 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Нижнее меню */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         <div className="max-w-4xl mx-auto flex justify-around items-center h-16">
           <NavButton
@@ -355,8 +349,8 @@ function ProfileTab() {
 
 function AchievementModal({ achievement, onClose }) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center" onClick={(e) => e.stopPropagation()}>
         <div className="text-6xl mb-4">{achievement.icon}</div>
         <h2 className="text-2xl font-bold mb-2">{achievement.name}</h2>
         <p className="text-gray-600 mb-4">{achievement.description}</p>

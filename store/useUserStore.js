@@ -3,49 +3,86 @@ import { supabase } from '@/lib/supabase'
 
 export const useUserStore = create((set, get) => ({
   user: null,
-  loading: false,
-
+  loading: true,
+  
   // Загрузка пользователя
-  loadUser: async (telegramId) => {
-    set({ loading: true })
-
+loadUser: async (telegramId) => {
+  console.log('📥 Загружаем пользователя с ID:', telegramId)
+  
+  set({ loading: true })
+  
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('telegram_id', telegramId)
+      .maybeSingle() // Используем maybeSingle вместо single
+    
+    if (error) {
+      console.error('❌ Ошибка загрузки:', error)
+      set({ user: null, loading: false })
+      return null
+    }
+    
+    if (!data) {
+      console.log('👤 Пользователь не найден')
+      set({ user: null, loading: false })
+      return null
+    }
+    
+    console.log('✅ Пользователь загружен:', data)
+    set({ user: data, loading: false })
+    return data
+  } catch (error) {
+    console.error('💥 Ошибка в loadUser:', error)
+    set({ user: null, loading: false })
+    return null
+  }
+},
+  
+  // Создание пользователя
+  createUser: async (telegramId, name = 'Пользователь') => {
+    console.log('➕ Создаём пользователя:', { telegramId, name })
+    
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('*')
-        .eq('telegram_id', telegramId)
-        .maybeSingle()
-
-      if (error) throw error
-
-      if (!data) {
-        // пользователь не существует — создаём БЕЗ имени
-        const { data: newUser, error: insertError } = await supabase
-          .from('users')
-          .insert({ telegram_id: telegramId })
-          .select()
-          .single()
-
-        if (insertError) throw insertError
-
-        set({ user: newUser, loading: false })
-        return newUser
+        .insert([{ 
+          telegram_id: telegramId, 
+          name: name,
+          level: 'A0',
+          streak: 0,
+          total_lessons: 0,
+          total_words: 0
+        }])
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('❌ Ошибка создания пользователя:', error)
+        throw error
       }
-
+      
+      console.log('✅ Пользователь создан:', data)
       set({ user: data, loading: false })
       return data
     } catch (error) {
-      console.error('Error loading user:', error)
+      console.error('💥 Ошибка в createUser:', error)
       set({ loading: false })
       return null
     }
   },
-
-  // Обновление профиля (имя, уровень и т.д.)
+  
+  // Обновление профиля
   updateProfile: async (updates) => {
     const user = get().user
-    if (!user) return null
-
+    if (!user) {
+      console.error('❌ Пользователь не найден для обновления')
+      return null
+    }
+    
+    console.log('🔄 Обновляем профиль:', updates)
+    
     try {
       const { data, error } = await supabase
         .from('users')
@@ -53,13 +90,17 @@ export const useUserStore = create((set, get) => ({
         .eq('telegram_id', user.telegram_id)
         .select()
         .single()
-
-      if (error) throw error
-
+      
+      if (error) {
+        console.error('❌ Ошибка обновления профиля:', error)
+        throw error
+      }
+      
+      console.log('✅ Профиль обновлён:', data)
       set({ user: data })
       return data
     } catch (error) {
-      console.error('Error updating profile:', error)
+      console.error('💥 Ошибка в updateProfile:', error)
       return null
     }
   }

@@ -10,19 +10,37 @@ export default function WelcomeScreen({ telegramId }) {
   const { createUser, updateProfile } = useUserStore()
 
   const handleStart = async () => {
-  if (!name.trim()) return
+  console.log('🔵 Кнопка нажата')
+  
+  if (!name.trim()) {
+    console.log('❌ Имя пустое!')
+    return
+  }
 
   if (telegramId) {
-    // Создаём пользователя
-    const newUser = await createUser(telegramId, name)
+    console.log('✅ Начинаем создание пользователя...')
     
-    if (newUser) {
-      // Обновляем профиль с уровнем и целью
-      await updateProfile({ level, goal })
+    try {
+      // Создаём пользователя
+      const newUser = await createUser(telegramId, name)
+      console.log('👤 Пользователь создан:', newUser)
       
-      // Перезагружаем страницу чтобы состояние обновилось
-      window.location.reload()
+      if (newUser) {
+        // Обновляем профиль с уровнем и целью
+        console.log('🔄 Обновляем профиль...')
+        await updateProfile({ level, goal })
+        console.log('✅ Профиль обновлён')
+        
+        // НЕ ПЕРЕЗАГРУЖАЕМ СТРАНИЦУ!
+        // React автоматически покажет Dashboard т.к. user изменился в store
+      } else {
+        console.log('❌ Пользователь не создан (вернулся null)')
+      }
+    } catch (error) {
+      console.error('💥 Ошибка:', error)
     }
+  } else {
+    console.log('❌ Telegram ID отсутствует!')
   }
 }
 
