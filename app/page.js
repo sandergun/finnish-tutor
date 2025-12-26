@@ -25,7 +25,7 @@ export default function Home() {
       }
     } else {
       // Для тестирования локально
-      const testId = 123456789
+      const testId = Math.floor(Math.random() * 1000000000)
       setTelegramId(testId)
       loadUser(testId)
     }
