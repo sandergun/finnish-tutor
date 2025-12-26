@@ -10,13 +10,21 @@ export default function WelcomeScreen({ telegramId }) {
   const { createUser, updateProfile } = useUserStore()
 
   const handleStart = async () => {
-    if (!name.trim()) return
+  if (!name.trim()) return
 
-    if (telegramId) {
-      await createUser(telegramId, name)
+  if (telegramId) {
+    // Создаём пользователя
+    const newUser = await createUser(telegramId, name)
+    
+    if (newUser) {
+      // Обновляем профиль с уровнем и целью
       await updateProfile({ level, goal })
+      
+      // Перезагружаем страницу чтобы состояние обновилось
+      window.location.reload()
     }
   }
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 text-white p-6 flex items-center justify-center">
