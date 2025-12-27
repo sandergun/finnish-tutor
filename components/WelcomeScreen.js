@@ -16,14 +16,46 @@ export default function WelcomeScreen({ telegramId }) {
     setIsLoading(true)
 
     try {
-      const newUser = await createUser(telegramId, name)
+      console.log('Starting registration with:', { telegramId, name, level, goal })
       
-      if (newUser) {
-        await updateProfile({ level, goal })
+      // Создаём или загружаем пользователя
+      const user = await createUser(telegramId, name)
+      
+      console.log('User created/loaded:', user)
+      
+      if (user) {
+        // Обновляем профиль только если имя было дефолтным
+        // или если пользователь ввёл новое имя
+        const needsUpdate = 
+          user.name === 'Пользователь' || 
+          user.name !== name ||
+          user.level !== level ||
+          !user.goal
+        
+        if (needsUpdate) {
+          console.log('Updating profile...')
+          await updateProfile({ 
+            name: name,
+            level: level, 
+            goal: goal 
+          })
+        }
+        
+        console.log('Registration successful!')
+        // После успешной регистрации страница автоматически перерендерится
+        // так как useUserStore обновил user
+      } else {
+        throw new Error('Failed to create/load user')
       }
     } catch (error) {
-      console.error('Error:', error)
-      alert('Ошибка регистрации. Попробуйте ещё раз.')
+      console.error('Error in handleStart:', error)
+      
+      // Показываем более понятное сообщение
+      if (error.code === '23505') {
+        alert('Этот аккаунт уже зарегистрирован. Попробуйте перезагрузить страницу.')
+      } else {
+        alert('Ошибка регистрации. Попробуйте ещё раз.')
+      }
     } finally {
       setIsLoading(false)
     }

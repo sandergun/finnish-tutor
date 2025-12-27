@@ -32,25 +32,31 @@ export const useUserStore = create((set, get) => ({
   
   createUser: async (telegramId, name = 'Пользователь') => {
     try {
-      // ВАЖНО: Сначала проверяем существует ли пользователь
+      console.log('Creating user with telegram_id:', telegramId)
+      
+      // Сначала пытаемся загрузить существующего пользователя
       const { data: existing, error: checkError } = await supabase
         .from('users')
         .select('*')
         .eq('telegram_id', telegramId)
         .maybeSingle()
       
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw checkError
-      }
+      console.log('Check existing user:', { existing, checkError })
       
-      // Если пользователь существует — просто логиним его
+      // Если пользователь найден, возвращаем его
       if (existing) {
-        console.log('User already exists, logging in...')
+        console.log('User already exists, returning existing user')
         set({ user: existing, loading: false })
         return existing
       }
       
-      // Если не существует — создаём нового
+      // Если есть ошибка при проверке (кроме "не найден"), выбрасываем её
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError
+      }
+      
+      // Создаём нового пользователя
+      console.log('Creating new user...')
       const { data, error } = await supabase
         .from('users')
         .insert([{ 
@@ -65,28 +71,39 @@ export const useUserStore = create((set, get) => ({
         .single()
       
       if (error) {
-        // Если всё равно ошибка дубликата — загружаем существующего
+        console.error('Insert error:', error)
+        
+        // Если ошибка дубликата (23505) - значит пользователь был создан между проверкой и вставкой
+        // Загружаем его снова
         if (error.code === '23505') {
-          const { data: existingUser } = await supabase
+          console.log('Duplicate key error, fetching existing user...')
+          const { data: existingUser, error: fetchError } = await supabase
             .from('users')
             .select('*')
             .eq('telegram_id', telegramId)
             .single()
           
+          if (fetchError) {
+            throw fetchError
+          }
+          
           if (existingUser) {
+            console.log('Found existing user after duplicate error')
             set({ user: existingUser, loading: false })
             return existingUser
           }
         }
+        
         throw error
       }
       
+      console.log('User created successfully:', data)
       set({ user: data, loading: false })
       return data
     } catch (error) {
-      console.error('Error creating user:', error)
+      console.error('Error in createUser:', error)
       set({ loading: false })
-      return null
+      throw error // Пробрасываем ошибку дальше
     }
   },
   
