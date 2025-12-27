@@ -32,6 +32,25 @@ export const useUserStore = create((set, get) => ({
   
   createUser: async (telegramId, name = 'Пользователь') => {
     try {
+      // ВАЖНО: Сначала проверяем существует ли пользователь
+      const { data: existing, error: checkError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('telegram_id', telegramId)
+        .maybeSingle()
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError
+      }
+      
+      // Если пользователь существует — просто логиним его
+      if (existing) {
+        console.log('User already exists, logging in...')
+        set({ user: existing, loading: false })
+        return existing
+      }
+      
+      // Если не существует — создаём нового
       const { data, error } = await supabase
         .from('users')
         .insert([{ 
@@ -45,7 +64,22 @@ export const useUserStore = create((set, get) => ({
         .select()
         .single()
       
-      if (error) throw error
+      if (error) {
+        // Если всё равно ошибка дубликата — загружаем существующего
+        if (error.code === '23505') {
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('*')
+            .eq('telegram_id', telegramId)
+            .single()
+          
+          if (existingUser) {
+            set({ user: existingUser, loading: false })
+            return existingUser
+          }
+        }
+        throw error
+      }
       
       set({ user: data, loading: false })
       return data
