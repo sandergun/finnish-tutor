@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useUserStore } from '@/store/useUserStore'
+import { useAchievementsStore } from '@/store/useAchievementsStore'
 import WelcomeScreen from '@/components/WelcomeScreen'
 import Dashboard from '@/components/Dashboard'
 
@@ -10,6 +11,12 @@ export default function Home() {
   const [mounted, setMounted] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
   const { user, loading, loadUser } = useUserStore()
+=======
+  const user = useUserStore((state) => state.user)
+  const loading = useUserStore((state) => state.loading)
+  const loadUser = useUserStore((state) => state.loadUser)
+  const loadAchievements = useAchievementsStore((state) => state.loadAchievements)
+>>>>>>> cf50603 (MWP Working)
 
   useEffect(() => {
     setMounted(true)
@@ -47,10 +54,11 @@ export default function Home() {
       
       setTelegramId(userId)
       await loadUser(userId)
+      await loadAchievements(userId)
     }
     
     initUser()
-  }, [loadUser])
+  }, [loadUser, loadAchievements])
 
   if (!mounted || loading) {
     const bgClass = darkMode 
