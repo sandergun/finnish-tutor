@@ -10,13 +10,10 @@ export default function Home() {
   const [telegramId, setTelegramId] = useState(null)
   const [mounted, setMounted] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
-  const { user, loading, loadUser } = useUserStore()
-=======
   const user = useUserStore((state) => state.user)
   const loading = useUserStore((state) => state.loading)
   const loadUser = useUserStore((state) => state.loadUser)
   const loadAchievements = useAchievementsStore((state) => state.loadAchievements)
->>>>>>> cf50603 (MWP Working)
 
   useEffect(() => {
     setMounted(true)

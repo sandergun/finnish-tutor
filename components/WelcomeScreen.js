@@ -11,36 +11,19 @@ export default function WelcomeScreen({ telegramId }) {
   const [goal, setGoal] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
-<<<<<<< HEAD
-  const [mounted, setMounted] = useState(false) // ДОБАВЬ
-  const { createUser, updateProfile } = useUserStore()
-
-  useEffect(() => {
-    setMounted(true) // ДОБАВЬ
-=======
   const [mounted, setMounted] = useState(false)
   const { createUser, updateProfile } = useUserStore()
 
   useEffect(() => {
     setMounted(true)
->>>>>>> cf50603 (MWP Working)
     const savedTheme = localStorage.getItem('theme')
     setDarkMode(savedTheme === 'dark')
   }, [])
 
-<<<<<<< HEAD
-  // ДОБАВЬ ЭТУ ПРОВЕРКУ
-=======
->>>>>>> cf50603 (MWP Working)
   if (!mounted) {
     return null
   }
 
-<<<<<<< HEAD
-  // ... остальной код
-
-=======
->>>>>>> cf50603 (MWP Working)
   const toggleTheme = () => {
     const newMode = !darkMode
     setDarkMode(newMode)
@@ -54,16 +37,7 @@ export default function WelcomeScreen({ telegramId }) {
     sounds.playClick()
     setIsLoading(true)
 
-    const user = await createUser(telegramId, name)
-    
-    if (user) {
-      const needsUpdate = 
-        user.name === 'Пользователь' || 
-        user.name !== name ||
-        user.level !== level ||
-        !user.goal
-      
-<<<<<<< HEAD
+    try {
       const user = await createUser(telegramId, name)
       
       console.log('User created/loaded:', user)
@@ -100,20 +74,7 @@ export default function WelcomeScreen({ telegramId }) {
       }
     } finally {
       setIsLoading(false)
-=======
-      if (needsUpdate) {
-        await updateProfile({ 
-          name: name,
-          level: level, 
-          goal: goal 
-        })
-      }
-      
-      sounds.playSuccess()
->>>>>>> cf50603 (MWP Working)
     }
-    
-    setIsLoading(false)
   }
 
   const bgClass = darkMode 
