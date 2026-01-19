@@ -208,7 +208,6 @@ function TabButton({ icon: Icon, label, active, onClick, darkMode }) {
   )
 }
 
-<<<<<<< HEAD
 function LessonsTab({ lessons, loading, userLevel, onStartLesson, isLessonCompleted, darkMode }) {
   const cardClass = darkMode
     ? 'bg-gray-800/50 border-gray-700 hover:border-purple-500'
@@ -270,10 +269,7 @@ function LessonsTab({ lessons, loading, userLevel, onStartLesson, isLessonComple
   )
 }
 
-<<<<<<< HEAD
 function StatsTab({ fullProgress, darkMode }) {
-  // The background is dark, so StatsCharts should look good.
-  // We can pass darkMode to StatsCharts if further customization is needed.
   return <StatsCharts progress={fullProgress} />
 }
 
