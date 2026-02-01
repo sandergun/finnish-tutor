@@ -7,6 +7,9 @@ import { ACHIEVEMENTS } from "@/lib/achievements";
 export const useAchievementsStore = create((set, get) => ({
     achievements: [],
     loading: true,
+    lastEarned: null,
+
+    clearLastEarned: () => set({ lastEarned: null }),
 
     loadAchievements: async (telegramId) => {
         set({ loading: true });
@@ -99,14 +102,16 @@ export const useAchievementsStore = create((set, get) => ({
         if (error) {
             return;
         }
+        
+        const achievement = ACHIEVEMENTS[achievementId];
 
         set((state) => ({
             achievements: state.achievements.map((a) =>
                 a.id === achievementId ? { ...a, earned: true } : a
             ),
+            lastEarned: achievement,
         }));
 
-        const achievement = ACHIEVEMENTS[achievementId];
         if (achievement) {
             const user = useUserStore.getState().user;
             await useUserStore.getState().updateProfile({

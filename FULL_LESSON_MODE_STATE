@@ -1,0 +1,21 @@
+# FULL LESSON MODE IMPLEMENTATION STATE
+
+## Plan
+
+1.  [x] Implement the basic structure of the "Full Lesson Flow".
+2.  [x] Implement the "Word Study" block.
+3.  [x] Implement the "Mini-Test" block.
+4.  [x] Implement the "Mini-Dialogue" block.
+5.  [x] Implement the "Listening Task" block.
+6.  [x] Implement the "Exercises" block.
+7.  [x] Implement the "Cycle Summary" block.
+8.  [x] Implement progress tracking.
+9.  [x] Implement the additional simple modes.
+10. [x] **Implement the admin panel.**
+
+## Current State
+
+- A settings tab has been added to the admin panel with a UI for configuring words per cycle.
+- The settings are not yet saved or used by the application.
+- The core requirements from `Obuchenie.txt` have been implemented to a functional level.
+- Future work includes implementing the saving/loading of settings and comprehensive error tracking for the repetition mode.

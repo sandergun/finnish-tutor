@@ -7,18 +7,37 @@ export const useUserStore = create((set, get) => ({
     user: null,
     loading: true,
     completedLessons: [],
-    progressData: [], 
+    progressData: [],
 
-    loadUser: async (telegramId) => {
+    login: (user) => {
+        set({ user });
+    },
+
+    logout: async () => {
+        await supabase.auth.signOut();
+        set({ user: null, completedLessons: [], progressData: [] });
+    },
+
+    loadUser: async (id, name) => {
+        if (!id) {
+            set({ user: null, loading: false, progressData: [] });
+            return null;
+        }
         set({ loading: true });
         try {
             const { data, error } = await supabase
                 .from('users')
                 .select('*')
-                .eq('telegram_id', telegramId)
-                .maybeSingle();
+                .eq('telegram_id', id)
+                .single();
 
             if (error) {
+                // If user not found, create it
+                if (error.code === 'PGRST116') {
+                    const newUser = await get().createUser(id, name);
+                    return newUser;
+                }
+                console.error('❌ Error loading user:', error);
                 set({ user: null, loading: false, progressData: [] });
                 return null;
             }
@@ -27,50 +46,78 @@ export const useUserStore = create((set, get) => ({
                 const { data: progress, error: progressError } = await supabase
                     .from('progress')
                     .select('*')
-                    .eq('telegram_id', data.telegram_id)
+                    .eq('user_id', data.id)
                     .order('completed_at', { ascending: true });
 
                 if (progressError) {
-                    console.error('❌ Error loading progress:', progressError);
+                    // Not a critical error, maybe the user has no progress yet.
+                }
+
+                // Update streak on login
+                // NOTE: We only update last_active here, NOT the streak.
+                // Streak is ONLY updated in saveProgress when a lesson is completed.
+                // This prevents the bug where refreshing the page adds +1 to streak.
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                let updatedUser = data;
+
+                // Only update last_active if it's a new day (to track daily activity)
+                // But do NOT increment streak here
+                if (data.last_active) {
+                    const lastActiveDate = new Date(data.last_active).toDateString();
+                    const todayDate = new Date().toDateString();
+
+                    if (lastActiveDate !== todayDate) {
+                        // Update last_active to today, but don't touch streak
+                        const { data: updated, error: updateError } = await supabase
+                            .from('users')
+                            .update({ last_active: new Date().toISOString() })
+                            .eq('telegram_id', id)
+                            .select()
+                            .single();
+
+                        if (updateError) {
+                            console.error('Error updating last_active:', JSON.stringify(updateError));
+                        } else if (updated) {
+                            updatedUser = updated;
+                            console.log('Updated last_active for new day (streak unchanged)');
+                        }
+                    }
+                } else {
+                    // First login ever - set last_active and initial streak
+                    const { data: updated } = await supabase
+                        .from('users')
+                        .update({ streak: 1, last_active: new Date().toISOString() })
+                        .eq('telegram_id', id)
+                        .select()
+                        .single();
+                    if (updated) updatedUser = updated;
                 }
 
                 set({
-                    user: data,
+                    user: updatedUser,
                     loading: false,
                     completedLessons: progress ? progress.filter(p => p.completed).map(p => p.lesson_id) : [],
                     progressData: progress || []
                 });
             } else {
-                set({ user: null, loading: false, completedLessons: [], progressData: [] });
+                const newUser = await get().createUser(id, name);
+                return newUser;
             }
             return data;
         } catch (error) {
+            console.error('❌ CATCH Error loading user:', error);
             set({ user: null, loading: false, progressData: [] });
             return null;
         }
     },
 
-    createUser: async (telegramId, name = 'Пользователь') => {
+    createUser: async (id, name) => {
         try {
-            const { data: existing, error: checkError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('telegram_id', telegramId)
-                .maybeSingle();
-
-            if (existing) {
-                set({ user: existing, loading: false });
-                return existing;
-            }
-
-            if (checkError && checkError.code !== 'PGRST116') {
-                throw checkError;
-            }
-
             const { data, error } = await supabase
                 .from('users')
                 .insert([{
-                    telegram_id: telegramId,
+                    telegram_id: id,
                     name: name,
                     level: 'A0',
                     streak: 0,
@@ -81,36 +128,39 @@ export const useUserStore = create((set, get) => ({
                 .select()
                 .single();
 
-            if (error) {
-                if (error.code === '23505') {
-                    const { data: existingUser, error: fetchError } = await supabase
-                        .from('users')
-                        .select('*')
-                        .eq('telegram_id', telegramId)
-                        .single();
-                    if (fetchError) {
-                        throw fetchError;
-                    }
-                    if (existingUser) {
-                        set({ user: existingUser, loading: false });
-                        return existingUser;
-                    }
-                }
-                throw error;
-            }
-            set({ user: data, loading: false });
+            if (error) throw error;
+
+            set({ user: data, loading: false, completedLessons: [], progressData: [] });
             return data;
         } catch (error) {
+            console.error('❌ Error creating user. Raw object:', error);
+            console.error('❌ Error creating user. Message:', error.message);
+            console.error('❌ Error creating user. Details:', error.details);
+            console.error('❌ Error creating user. Hint:', error.hint);
+            console.error('❌ Error creating user. Code:', error.code);
+
+            // If user already exists, load it
+            if (error.code === '23505') {
+                const { data: existingUser, error: fetchError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('telegram_id', id)
+                    .single();
+                if (fetchError) throw fetchError;
+                if (existingUser) {
+                    set({ user: existingUser, loading: false });
+                    return existingUser;
+                }
+            }
             set({ loading: false });
-            throw error;
+            return null;
         }
     },
 
     updateProfile: async (updates) => {
         const user = get().user;
-        if (!user) {
-            return null;
-        }
+        if (!user) return null;
+
 
         const { data, error } = await supabase
             .from('users')
@@ -120,6 +170,7 @@ export const useUserStore = create((set, get) => ({
             .single();
 
         if (error) {
+            console.error('❌ Error updating profile:', error);
             return null;
         }
 
@@ -129,40 +180,66 @@ export const useUserStore = create((set, get) => ({
 
     saveProgress: async (lessonData) => {
         const user = get().user;
-        if (!user || !user.telegram_id) {
-            return null;
-        }
+        if (!user || !user.id) return null;
 
         try {
             const progressDataToSave = {
-                telegram_id: user.telegram_id,
+                user_id: user.id,
                 lesson_id: lessonData.lessonId,
                 score: lessonData.score,
                 completed: lessonData.score >= 70,
                 completed_at: new Date().toISOString(),
             };
 
-            const { error } = await supabase.from('progress').upsert(progressDataToSave);
+            const { error } = await supabase.from('progress').upsert(progressDataToSave, { onConflict: ['user_id', 'lesson_id'] });
 
             if (error) throw error;
 
-            const { data: existing } = await supabase
-                .from('progress')
-                .select("lesson_id")
-                .eq("telegram_id", user.telegram_id)
-                .eq("lesson_id", lessonData.lessonId)
-                .maybeSingle();
+            let newTotalLessons = user.total_lessons;
+            if (lessonData.score >= 70) {
+                const { data: existing } = await supabase
+                    .from('progress')
+                    .select("lesson_id")
+                    .eq("user_id", user.id)
+                    .eq("lesson_id", lessonData.lessonId)
+                    .maybeSingle();
 
-            const newTotalLessons =
-                lessonData.score >= 70
-                    ? user.total_lessons + (existing ? 0 : 1)
-                    : user.total_lessons;
+                if (!existing) {
+                    newTotalLessons++;
+                }
+            }
 
             const newTotalWords = user.total_words + (lessonData.newWords || 0);
+
+            // Calculate new streak based on last_active date
+            let newStreak = user.streak || 0;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (user.last_active) {
+                const lastActive = new Date(user.last_active);
+                lastActive.setHours(0, 0, 0, 0);
+
+                const diffDays = Math.floor((today - lastActive) / (1000 * 60 * 60 * 24));
+
+                if (diffDays === 0) {
+                    // Already active today, keep streak
+                } else if (diffDays === 1) {
+                    // Was active yesterday, increment streak
+                    newStreak = newStreak + 1;
+                } else {
+                    // Gap in activity, reset streak
+                    newStreak = 1;
+                }
+            } else {
+                // First time activity
+                newStreak = 1;
+            }
 
             await get().updateProfile({
                 total_lessons: newTotalLessons,
                 total_words: newTotalWords,
+                streak: newStreak,
                 last_active: new Date().toISOString(),
             });
 
@@ -174,19 +251,20 @@ export const useUserStore = create((set, get) => ({
                     });
                 }
             }
-            
+
             const { data: updatedProgress } = await supabase
                 .from('progress')
                 .select('*')
-                .eq('telegram_id', user.telegram_id)
+                .eq('user_id', user.id)
                 .order('completed_at', { ascending: true });
 
             set({ progressData: updatedProgress || [] });
-            
+
             await useAchievementsStore.getState().checkForNewAchievements(get().user, progressDataToSave);
 
             return true;
         } catch (error) {
+            console.error('❌ Error saving progress:', error);
             return false;
         }
     },

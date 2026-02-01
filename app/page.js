@@ -5,56 +5,52 @@ import { useUserStore } from '@/store/useUserStore'
 import { useAchievementsStore } from '@/store/useAchievementsStore'
 import WelcomeScreen from '@/components/WelcomeScreen'
 import Dashboard from '@/components/Dashboard'
+import Auth from '@/components/Auth'
+import { supabase } from '@/lib/supabase'
 
 export default function Home() {
-  const [telegramId, setTelegramId] = useState(null)
+  const [session, setSession] = useState(null)
   const [mounted, setMounted] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
   const user = useUserStore((state) => state.user)
   const loading = useUserStore((state) => state.loading)
   const loadUser = useUserStore((state) => state.loadUser)
+  const login = useUserStore((state) => state.login)
   const loadAchievements = useAchievementsStore((state) => state.loadAchievements)
 
   useEffect(() => {
-    setMounted(true)
-    
+    setMounted(true);
     const savedTheme = localStorage.getItem('theme')
     setDarkMode(savedTheme === 'dark')
-    
+
     const initUser = async () => {
-      const tg = window.Telegram?.WebApp
-      
-      let userId = null
-      
-      if (tg) {
-        tg.ready()
-        tg.expand()
-        
-        const tgUser = tg.initDataUnsafe?.user
-        
-        if (tgUser?.id) {
-          userId = tgUser.id
-          localStorage.setItem('test_telegram_id', userId.toString())
-        }
-      }
-      
-      if (!userId) {
-        const savedId = localStorage.getItem('test_telegram_id')
-        
-        if (savedId) {
-          userId = parseInt(savedId)
+      // Check for Telegram Web App context
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+        const initData = window.Telegram.WebApp.initData;
+        const params = new URLSearchParams(initData);
+        const userParam = params.get('user');
+
+        if (userParam) {
+          const userData = JSON.parse(userParam);
+          await loadUser(userData.id, userData.first_name);
+          loadAchievements(userData.id);
         } else {
-          userId = Date.now()
-          localStorage.setItem('test_telegram_id', userId.toString())
+          // Handle case where user data is not in initData
+          console.error("User data not found in Telegram initData.");
+          loadUser(null, null);
         }
+      } else {
+        // Fallback for development outside Telegram
+        console.warn("Telegram Web App context not found. Running in dev mode with mock user.");
+        const MOCK_USER_ID = 123456789;
+        const MOCK_USER_NAME = "Dev User";
+        await loadUser(MOCK_USER_ID, MOCK_USER_NAME);
+        loadAchievements(MOCK_USER_ID);
       }
-      
-      setTelegramId(userId)
-      await loadUser(userId)
-      await loadAchievements(userId)
-    }
-    
-    initUser()
+    };
+
+    initUser();
+
   }, [loadUser, loadAchievements])
 
   if (!mounted || loading) {
@@ -82,8 +78,13 @@ export default function Home() {
     )
   }
 
-  if (!user || !user.name || user.name === 'Пользователь') {
-    return <WelcomeScreen telegramId={telegramId} />
+  if (!user) {
+    // This could be a splash screen or a message to open the app in Telegram
+    return <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">Please open this app within Telegram.</div>
+  }
+
+  if (!user.name || user.name === 'Пользователь') {
+    return <WelcomeScreen telegramId={user.telegram_id} />
   }
 
   return <Dashboard />

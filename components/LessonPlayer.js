@@ -4,123 +4,597 @@ import { useState, useEffect, useMemo } from 'react'
 import { Volume2, ArrowRight, ArrowLeft, Moon, Sun, CheckCircle, XCircle, Sparkles, Zap, Book, X, HelpCircle, RotateCcw, SkipForward, Eye, MessageSquare, GraduationCap, Brain, Globe } from 'lucide-react'
 import { speak } from '@/lib/googleTTS'
 import { sounds } from '@/lib/sounds'
+import WordStudyBlock from './WordStudyBlock'
+import MiniTestBlock from './MiniTestBlock'
+import MiniDialogueBlock from './MiniDialogueBlock'
+import ListeningTaskBlock from './ListeningTaskBlock'
+import ExercisesBlock from './ExercisesBlock'
+import FinalExamBlock from './FinalExamBlock'
+// removed CycleSummaryBlock
 
 // Helper function to shuffle an array
 const shuffleArray = (array) => {
   return [...array].sort(() => Math.random() - 0.5);
 }
 
-export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose }) {
-  // Memoize the initial lesson processing
-  const lesson = useMemo(() => ({
-    ...(rawLesson || {}),
-    questions: (rawLesson?.questions || []).map(q => ({ ...q, options: q.options || [] })),
-    words: rawLesson?.words || [],
-    examples: rawLesson?.examples || [],
-    mini_dialogues: (rawLesson?.mini_dialogues || []).map(d => ({ ...d, lines: d.lines || [] })),
-  }), [rawLesson]);
+const WORDS_PER_CYCLE = 3;
+const QUESTIONS_PER_CYCLE = 3;
+const FINAL_QUIZ_QUESTIONS = 2;
 
-  // Add new state for shuffled questions
-  const [shuffledQuestions, setShuffledQuestions] = useState([]);
+// Inline component for Listening Mode - handles questions without cycles
+function ListeningModePlayer({ questions, onNext }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+
+  const currentQuestion = questions[currentIndex];
+
+  const correctAnswer = useMemo(() => {
+    if (!currentQuestion) return null;
+    if (typeof currentQuestion.correct === 'number') {
+      return currentQuestion.options?.[currentQuestion.correct] || null;
+    }
+    return currentQuestion.correct || null;
+  }, [currentQuestion]);
+
+  const handlePlayAudio = async () => {
+    if (!currentQuestion) return;
+
+    let textToSpeak = currentQuestion.text_to_speak;
+    if (!textToSpeak && typeof currentQuestion.correct === 'string') {
+      textToSpeak = currentQuestion.correct;
+    } else if (!textToSpeak && typeof currentQuestion.correct === 'number' && currentQuestion.options) {
+      textToSpeak = currentQuestion.options[currentQuestion.correct];
+    }
+
+    if (textToSpeak) {
+      try {
+        await speak(textToSpeak, 'fi-FI');
+      } catch (error) {
+        console.error('TTS error:', error);
+      }
+    }
+  };
 
   useEffect(() => {
-    // This effect will run once when the lesson is loaded.
-    // It shuffles the options for choice questions and normalizes the data structure.
-    const processedQuestions = lesson.questions.map(q => {
-      if (q.type === 'choice' || q.type === 'fill-in-choice') {
-        if (!q.options || q.options.length === 0) {
-          return { ...q, isBroken: true }; // Mark question as broken
+    if (currentQuestion) {
+      handlePlayAudio();
+    }
+  }, [currentIndex]);
+
+  const handleCheck = () => {
+    if (!selectedAnswer || !correctAnswer) return;
+
+    if (selectedAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase()) {
+      setFeedback('correct');
+      sounds.playCorrect();
+    } else {
+      setFeedback('incorrect');
+      sounds.playWrong();
+    }
+  };
+
+  const handleNext = () => {
+    setFeedback(null);
+    setSelectedAnswer(null);
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else {
+      onNext();
+    }
+  };
+
+  if (!currentQuestion || !currentQuestion.options || currentQuestion.options.length === 0) {
+    return (
+      <div className="text-center">
+        <p>Нет вопросов для аудирования.</p>
+        <button onClick={onNext} className="w-full mt-6 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold py-4 rounded-xl">
+          Продолжить
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-4 text-sm text-gray-400 text-center">
+        Вопрос {currentIndex + 1} из {questions.length}
+      </div>
+      <h2 className="text-2xl font-bold mb-4 text-center">Что вы слышите?</h2>
+      <div className="flex justify-center my-6">
+        <button onClick={handlePlayAudio} className="p-6 bg-blue-500 rounded-full text-white hover:bg-blue-600 transition-colors">
+          <Volume2 size={48} />
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {currentQuestion.options.map((option, index) => {
+          let buttonClass = 'bg-gray-700 hover:bg-gray-600';
+          if (feedback && option === correctAnswer) {
+            buttonClass = 'bg-green-500';
+          } else if (feedback && option === selectedAnswer && selectedAnswer !== correctAnswer) {
+            buttonClass = 'bg-red-500';
+          } else if (selectedAnswer === option) {
+            buttonClass = 'bg-blue-600';
+          }
+
+          return (
+            <button
+              key={index}
+              onClick={() => !feedback && setSelectedAnswer(option)}
+              disabled={!!feedback}
+              className={`w-full p-4 rounded-lg text-left transition-colors ${buttonClass}`}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+
+      {feedback === 'incorrect' && (
+        <div className="mt-4 p-4 rounded-lg bg-red-900 text-white">
+          <p>Неправильно!</p>
+          <p>Правильный ответ: {correctAnswer}</p>
+        </div>
+      )}
+
+      {feedback === 'correct' && (
+        <div className="mt-4 p-4 rounded-lg bg-green-900 text-white flex items-center">
+          <CheckCircle className="mr-2" />
+          <p>Правильно!</p>
+        </div>
+      )}
+
+      <div className="mt-6">
+        {!feedback ? (
+          <button onClick={handleCheck} disabled={!selectedAnswer} className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold py-4 rounded-xl disabled:opacity-50">
+            Проверить
+          </button>
+        ) : (
+          <button onClick={handleNext} className="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-4 rounded-xl">
+            {currentIndex < questions.length - 1 ? 'Следующий вопрос' : 'Завершить'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose }) {
+  const [currentBlock, setCurrentBlock] = useState('word-study');
+  const [currentCycleIndex, setCurrentCycleIndex] = useState(0);
+
+  // Debug: log lesson data
+  console.log('📚 LessonPlayer received:', {
+    id: rawLesson?.id,
+    title: rawLesson?.title,
+    type: rawLesson?.type,
+    hasTheory: !!rawLesson?.theory,
+    theoryLength: rawLesson?.theory?.length || 0,
+    hasDialogues: !!rawLesson?.mini_dialogues?.length,
+    dialoguesCount: rawLesson?.mini_dialogues?.length || 0,
+  });
+
+  // 1. Dynamic Question Generation
+  // Ensure we have "choice", "assemble" (translate), "fill-in" questions even if lesson data is sparse.
+  const generatedQuestions = useMemo(() => {
+    const gen = [];
+    const lessonWords = rawLesson?.words || [];
+
+    lessonWords.forEach((word) => {
+      // 1. Choice ("How to say X?")
+      const distractors = shuffleArray(lessonWords.filter(w => w.finnish !== word.finnish).map(w => w.finnish)).slice(0, 3);
+      gen.push({
+        type: 'choice',
+        question: `Как сказать по-фински "${word.russian}"?`,
+        correct: word.finnish,
+        options: shuffleArray([word.finnish, ...distractors])
+      });
+
+      // 2. Assemble / Translate ("Assemble the phrase") - ONLY if example sentence exists
+      if (word.example_sentence && word.example_sentence.finnish) {
+        gen.push({
+          type: 'translate', // mapped to ExercisesBlock (Assemble)
+          question: `Соберите фразу: "${word.example_sentence.russian}"`,
+          correct: word.example_sentence.finnish,
+          options: [], // Options generated dynamically in block or here? 
+          // ExercisesBlock expects 'correct' string and 'allWords' to prompt assemble.
+        });
+
+        // 3. Fill-in ("Insert missing word")
+        // Create a fill-in by removing the current word from the example sentence
+        const sentence = word.example_sentence.finnish;
+        const wordForm = word.finnish.toLowerCase(); // simplified matching
+
+        if (sentence.toLowerCase().includes(wordForm)) {
+          const part1 = sentence.replace(new RegExp(wordForm, 'gi'), '_____');
+          const fillInDistractors = shuffleArray(lessonWords.filter(w => w.finnish !== word.finnish).map(w => w.finnish)).slice(0, 3);
+          gen.push({
+            type: 'fill-in-choice', // or 'fill-in'
+            question: `Вставьте пропущенное слово:\n"${part1}"\n(${word.example_sentence.russian})`,
+            translation: word.example_sentence.russian, // Added explicit translation
+            correct: word.finnish, // The word form users choose
+            options: shuffleArray([word.finnish, ...fillInDistractors])
+          });
         }
-
-        let correctAnswerValue;
-        // Handle both index and string value for correct answer
-        if (typeof q.correct === 'number') {
-          correctAnswerValue = q.options[q.correct];
-        } else {
-          correctAnswerValue = q.correct;
-        }
-
-        if (correctAnswerValue === undefined) {
-          return { ...q, isBroken: true };
-        }
-
-        const shuffled = shuffleArray(q.options);
-        const newCorrectIndex = shuffled.indexOf(correctAnswerValue);
-
-        return {
-          ...q,
-          options: shuffled,
-          correct: newCorrectIndex, // Always use index for consistency
-        };
       }
-      return q;
     });
-    setShuffledQuestions(processedQuestions);
+    return gen;
+  }, [rawLesson]);
 
-  }, [lesson.questions]);
+  const { words, questions, dialogues } = useMemo(() => {
+    const lessonWords = rawLesson?.words || [];
 
-  const [stage, setStage] = useState('theory')
-  const [currentWordIndex, setCurrentWordIndex] = useState(0)
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [answers, setAnswers] = useState({})
-  const [showResults, setShowResults] = useState(false)
-  const [score, setScore] = useState(0)
-  const [darkMode, setDarkMode] = useState(false)
-  const [showFeedback, setShowFeedback] = useState(false)
-  const [isCorrect, setIsCorrect] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  
-  // States for 'translate' question type
-  const [userWords, setUserWords] = useState([])
-  const [wordOptions, setWordOptions] = useState([])
-  
-  // New states for interactive word cards
-  const [showExample, setShowExample] = useState(false)
-  const [showTranslation, setShowTranslation] = useState(false)
+    // Combine static questions with generated ones
+    const staticQuestions = (rawLesson?.questions || [])
+      .filter(q => q.type !== 'audio-choice')
+      .map(q => {
+        let correctString = null;
+        if (typeof q.correct === 'number') {
+          if (q.options && q.options[q.correct]) {
+            correctString = q.options[q.correct];
+          }
+        } else if (typeof q.correct === 'string') {
+          correctString = q.correct;
+        }
 
-  const [translationClicks, setTranslationClicks] = useState(0)
-  const [cardsWithoutTranslation, setCardsWithoutTranslation] = useState(0)
-  const [translationShownForCurrentCard, setTranslationShownForCurrentCard] = useState(false)
+        if (!correctString) return q; // Could not resolve correct
 
+        const options = q.options ? [...q.options] : [];
+        // If correctString is not in options, add it (shouldn't happen usually)
+        if (!options.includes(correctString)) options.push(correctString);
+
+        return { ...q, options: shuffleArray(options), correct: correctString };
+      });
+
+    // Deduplicate questions by correct answer to avoid "Как по-фински X" and "Как сказать по-фински X"
+    const seenCorrects = new Set();
+    const allQuestions = [...staticQuestions, ...generatedQuestions].filter(q => {
+      const key = (q.correct || '').toLowerCase().trim();
+      if (!key) return true; // keep questions without correct answer (edge case)
+      if (seenCorrects.has(key)) return false;
+      seenCorrects.add(key);
+      return true;
+    });
+    const lessonDialogues = rawLesson?.mini_dialogues || [];
+    return { words: lessonWords, questions: allQuestions, dialogues: lessonDialogues };
+  }, [rawLesson, generatedQuestions]);
+
+  // Unified flow: 4 words per cycle
+  const WORDS_PER_CYCLE = 4;
+
+  const wordChunks = [];
+  for (let i = 0; i < words.length; i += WORDS_PER_CYCLE) {
+    wordChunks.push(words.slice(i, i + WORDS_PER_CYCLE));
+  }
+
+  // 1. Logic for Cycles with Cumulative Review
+  // Block N: 4 new words + 1 random from Block N-1 (if exists)
+
+  const cycles = useMemo(() => {
+    return wordChunks.map((chunk, index) => {
+      let cycleWords = [...chunk];
+
+      // Add review word from previous block if available
+      if (index > 0) {
+        const prevChunk = wordChunks[index - 1];
+        if (prevChunk && prevChunk.length > 0) {
+          const randomPrevWord = prevChunk[Math.floor(Math.random() * prevChunk.length)];
+          // Add as a "review" word - maybe mark it? 
+          // For WordStudyBlock, it just renders words. If we want to show it's review, we might need a flag.
+          // But requirement says just "Study 5 words".
+          // Ensure uniqueness (though mostly safe if chunks are distinct)
+          if (!cycleWords.find(w => w.finnish === randomPrevWord.finnish)) {
+            cycleWords.push(randomPrevWord);
+          }
+        }
+      }
+
+      // Find questions relevant to these words (including the review word)
+      const chunkWordSet = new Set(cycleWords.map(w => (w.finnish || '').toLowerCase().trim()));
+
+      const chunkQuestions = questions.filter(q => {
+        // Strict filter: Question must relate to one of the words in the chunk
+        if (q.type === 'audio-choice' || q.type === 'listening-task') {
+          return false;
+        }
+
+        let keys = [];
+        let correctStr = typeof q.correct === 'string' ? q.correct :
+          (typeof q.correct === 'number' && q.options ? q.options[q.correct] : null);
+
+        if (correctStr) keys.push(correctStr);
+        // We can also check options, but checking correct answer is safest for "Mini Test" context.
+        // Actually, if a question has "Distractor" from this chunk, it might be confusing?
+        // Let's stick to checking if the CORRECT answer is in the chunk.
+
+        // Check if correct answer matches a word in the chunk
+        return keys.some(k => chunkWordSet.has((k || '').toLowerCase().trim()));
+      });
+
+      return {
+        words: cycleWords,
+        questions: chunkQuestions, // Pass only RELEVANT questions
+        dialogues: dialogues[index] ? [dialogues[index]] : [],
+      };
+    });
+  }, [wordChunks, questions, dialogues]);
+
+  // 2. Final Exam Data Generation
+  // "After passing all blocks comes a big check... Result shown only after this."
+  // Types: Fill-in, Dialogue Fill (reuse Dialogue choice), Translation (Choice), Situation (Dialogue), Assemble (Translate)
+
+  const finalExamTasks = useMemo(() => {
+    if (!words || words.length === 0) return [];
+
+    const tasks = [];
+
+    // 1. Fill-in ('fill-in-choice' or 'fill-in')
+    const fillInQs = questions.filter(q => ['fill-in', 'fill-in-choice'].includes(q.type));
+    if (fillInQs.length > 0) {
+      tasks.push({ type: 'question', data: { ...fillInQs[Math.floor(Math.random() * fillInQs.length)], allWordsRef: words } });
+    }
+
+    // 2. Dialogue Fill / Situation (Reusable MiniDialogue)
+    // "Insert needed replica" / "Situation ordering coffee" -> These are essentially dialogues.
+    // Let's pick 1 or 2 dialogues from the lesson.
+    // If we have dialogues, pick a random one that IS NOT the one from the very last cycle (to ensure review).
+    // Or just pick any.
+    if (dialogues.length > 0) {
+      const dialog = dialogues[Math.floor(Math.random() * dialogues.length)];
+      tasks.push({ type: 'dialogue', data: dialog });
+    }
+
+    // 3. Translation ("How is X...") -> Choice
+    const choiceQs = questions.filter(q => q.type === 'choice');
+    if (choiceQs.length > 0) {
+      tasks.push({ type: 'question', data: choiceQs[Math.floor(Math.random() * choiceQs.length)] });
+    }
+
+    // 4. Assemble ("Collect phrase") -> Translate
+    const assembleQs = questions.filter(q => q.type === 'translate');
+    if (assembleQs.length > 0) {
+      tasks.push({ type: 'question', data: { ...assembleQs[Math.floor(Math.random() * assembleQs.length)], allWordsRef: words } });
+    }
+
+    // Shuffle tasks
+    return shuffleArray(tasks);
+  }, [questions, dialogues, words]);
+
+
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+  const [answers, setAnswers] = useState({});
+  const [showResults, setShowResults] = useState(false);
+  const [score, setScore] = useState(0);
+  const [darkMode, setDarkMode] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  const [userWords, setUserWords] = useState([]);
+  const [wordOptions, setWordOptions] = useState([]);
+
+  const [showExample, setShowExample] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
+
+  const [translationClicks, setTranslationClicks] = useState(0);
+  const [cardsWithoutTranslation, setCardsWithoutTranslation] = useState(0);
+  const [translationShownForCurrentCard, setTranslationShownForCurrentCard] = useState(false);
+  const [randomModeWordIndex, setRandomModeWordIndex] = useState(0);
+  const [showSummary, setShowSummary] = useState(false);
+  const [lessonResult, setLessonResult] = useState(null);
+
+  // Score tracking - blocks report their results via onResult callback
+  const [scoreStats, setScoreStats] = useState({ correct: 0, total: 0 });
+
+  // Stable mini-test questions stored in state
+  const [miniTestQuestions, setMiniTestQuestions] = useState([]);
+  const [lastShuffledCycleIndex, setLastShuffledCycleIndex] = useState(-1);
+
+  const handleResult = (isCorrect) => {
+    setScoreStats(prev => ({
+      correct: prev.correct + (isCorrect ? 1 : 0),
+      total: prev.total + 1
+    }));
+  };
+
+  const handleRestart = () => {
+    if (typeof window !== 'undefined' && !window.confirm('Вы уверены, что хотите начать урок заново? Весь прогресс будет сброшен.')) return;
+
+    localStorage.removeItem('lessonProgress');
+    setCurrentCycleIndex(0);
+    setCurrentBlock('word-study');
+    setAnswers({});
+    setScore(0);
+    setUserWords([]);
+    setLessonResult(null);
+    setShowResults(false);
+    setScoreStats({ correct: 0, total: 0 });
+
+    // Also reset random/internal states if needed
+    setRandomModeWordIndex(0);
+    setTranslationClicks(0);
+    setShowSummary(false);
+    setLastShuffledCycleIndex(-1); // Reset to trigger new shuffle
+  };
+
+
+  useEffect(() => {
+    if (mounted) {
+      const progress = {
+        lessonId: rawLesson.id,
+        cycleIndex: currentCycleIndex,
+        block: currentBlock,
+      };
+      localStorage.setItem('lessonProgress', JSON.stringify(progress));
+    }
+  }, [currentCycleIndex, currentBlock, rawLesson.id, mounted]);
 
   const userInput = useMemo(() => userWords.join(' '), [userWords]);
-  
-  useEffect(() => {
-    setMounted(true)
-    const savedTheme = localStorage.getItem('theme')
-    setDarkMode(savedTheme === 'dark')
-    // Set initial stage based on lesson type
-    setStage(lesson.type === 'practical' ? 'words' : 'theory');
-  }, [lesson.type])
-  
-  // Use the shuffled questions for the quiz
-  const question = useMemo(() => shuffledQuestions[currentQuestionIndex], [shuffledQuestions, currentQuestionIndex]);
 
   useEffect(() => {
-    // This effect now populates the word bank for the 'translate' question type
-    if (stage === 'quiz' && question?.type === 'translate') {
-      const correctWords = (question.correct || '').split(' ').filter(Boolean);
-      
-      if (correctWords.length === 0) {
-        setWordOptions([]);
-        return;
+    setMounted(true);
+    const savedTheme = localStorage.getItem('theme');
+    setDarkMode(savedTheme === 'dark');
+
+    const savedProgress = localStorage.getItem('lessonProgress');
+    if (savedProgress) {
+      const { lessonId, cycleIndex, block } = JSON.parse(savedProgress);
+      if (lessonId === rawLesson.id) {
+        setCurrentCycleIndex(cycleIndex);
+        setCurrentBlock(block);
+        return; // Exit early if progress was restored
+      }
+    }
+
+    // Fresh start - determine initial block
+    if (rawLesson.isListeningMode) {
+      setCurrentBlock('listening-task');
+      return;
+    }
+
+    // If lesson has theory, start with theory (regardless of cycles being ready)
+    if (rawLesson.theory) {
+      setCurrentBlock('theory');
+    } else {
+      setCurrentBlock('word-study');
+    }
+  }, [rawLesson.id, rawLesson.theory, rawLesson.isListeningMode]);
+
+  // Get current cycle, word, and question based on indices
+  const currentCycle = useMemo(() => cycles[currentCycleIndex], [cycles, currentCycleIndex]);
+  const question = useMemo(() => currentCycle?.questions[currentQuestionIndex], [currentCycle, currentQuestionIndex]);
+
+  // Shuffle mini-test questions when cycle changes
+  useEffect(() => {
+    // Only reshuffle when cycle index actually changes
+    if (currentCycleIndex === lastShuffledCycleIndex) return;
+    if (!currentCycle || !currentCycle.words) {
+      setMiniTestQuestions([]);
+      return;
+    }
+
+    const cycleWords = new Set(currentCycle.words.map(w => w.finnish));
+
+    const relevantQuestions = currentCycle.questions.filter(q => {
+      if (!q.options || q.options.length === 0) return false;
+
+      let correctAnswerWord;
+      if (typeof q.correct === 'number') {
+        if (q.correct >= q.options.length) return false;
+        correctAnswerWord = q.options[q.correct];
+      } else {
+        correctAnswerWord = q.correct;
       }
 
-      const distractorPool = [
-        ...lesson.words.map(w => w.finnish).filter(w => !correctWords.includes(w)),
-        'ja', 'on', 'ei', 'mutta', 'myös', 'sinä', 'minä', 'hän'
-      ];
-      const shuffledPool = shuffleArray([...new Set(distractorPool)]);
-      const numDistractors = Math.min(Math.max(4, correctWords.length), 6);
-      const distractors = shuffledPool.slice(0, numDistractors);
-      setWordOptions(shuffleArray([...correctWords, ...distractors]));
-      setUserWords([]);
+      if (!correctAnswerWord) return false;
+      return cycleWords.has(correctAnswerWord);
+    });
+
+    // Shuffle once when cycle changes
+    const shuffled = [...relevantQuestions]
+      .filter(q => q.type !== 'audio-choice' && q.type !== 'translate')
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 5);
+
+    setMiniTestQuestions(shuffled);
+    setLastShuffledCycleIndex(currentCycleIndex);
+  }, [currentCycle, currentCycleIndex, lastShuffledCycleIndex]);
+
+  const blockOrder = useMemo(() => {
+    if (currentBlock === 'final-exam') return ['final-exam'];
+    if (!currentCycle) return [];
+
+    // Progressive Structure:
+    // First cycle (Index 0): Theory -> Study -> Test
+    // Block 2 (Index 1): Study -> Test -> Dialogue (Simple)
+    // Block 3+ (Index 2+): Study -> Test -> Dialogue -> Practice
+
+    const order = [];
+
+    // Add theory block only for the first cycle and if lesson has theory
+    if (currentCycleIndex === 0 && rawLesson.theory) {
+      order.push('theory');
     }
-  }, [currentQuestionIndex, stage, question, lesson.words]);
+
+    order.push('word-study', 'mini-test');
+
+    if (currentCycleIndex >= 1) {
+      // Add Dialogue
+      if (currentCycle.dialogues && currentCycle.dialogues.length > 0) {
+        order.push('mini-dialogue');
+      }
+    }
+
+    if (currentCycleIndex >= 2) {
+      // Add Practice
+      if (currentCycle.questions.some(q => ['translate', 'fill-in', 'fill-in-choice'].includes(q.type))) {
+        order.push('exercises');
+      }
+    }
+
+    return order;
+  }, [currentCycle, currentCycleIndex, currentBlock, rawLesson.theory]);
+
+  const currentBlockIndex = blockOrder.indexOf(currentBlock);
+
+  const blockTypeNames = {
+    'theory': 'Теория',
+    'word-study': 'Изучение слов',
+    'mini-test': 'Мини-тест',
+    'mini-dialogue': 'Мини-диалог',
+    'exercises': 'Практика',
+    'final-exam': 'Финальный экзамен'
+  };
+  const blockName = blockTypeNames[currentBlock];
 
 
-  if (!mounted || shuffledQuestions.length === 0) {
-    // Show a loading state until questions are shuffled and ready
+
+  useEffect(() => {
+
+    if (question?.type === 'translate') {
+
+      const correctWords = (question.correct || '').split(' ').filter(Boolean);
+
+
+
+      if (correctWords.length === 0) {
+
+        setWordOptions([]);
+
+        return;
+
+      }
+
+
+
+      const distractorPool = [
+
+        ...cycles.flatMap(c => c.words).map(w => w.finnish).filter(w => !correctWords.includes(w)),
+
+        'ja', 'on', 'ei', 'mutta', 'myös', 'sinä', 'minä', 'hän'
+
+      ];
+
+      const shuffledPool = shuffleArray([...new Set(distractorPool)]);
+
+      const numDistractors = Math.min(Math.max(4, correctWords.length), 6);
+
+      const distractors = shuffledPool.slice(0, numDistractors);
+
+      setWordOptions(shuffleArray([...correctWords, ...distractors]));
+
+      setUserWords([]);
+
+    }
+
+  }, [currentQuestionIndex, question, cycles]);
+
+
+
+  if (!mounted) {
     return null;
   }
 
@@ -140,132 +614,59 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
     }
   }
 
-  const handleAnswer = (questionIndex, answer) => {
+  const handleAnswer = (key, answer) => {
     if (showFeedback) return
     sounds.playClick()
-    setAnswers({ ...answers, [questionIndex]: answer })
+    setAnswers({ ...answers, [key]: answer })
   }
 
-  const checkAnswers = () => {
-    let correctCount = 0
-    shuffledQuestions.forEach((q, index) => {
-      const userAnswer = answers[index];
-      if (userAnswer === undefined || userAnswer === '___skip___') return;
+  const triggerLessonEnd = () => {
+    const totalWords = cycles.reduce((acc, c) => acc + c.words.length, 0);
 
-      if (q.type === 'translate') {
-        if (userAnswer.toLowerCase().trim() === (q.correct || '').toLowerCase().trim()) {
-          correctCount++;
-        }
-      } else if (q.options && userAnswer === q.options[q.correct]) {
-        correctCount++;
-      }
-    });
-    
-    setScore(correctCount)
-    setShowResults(true)
-    const percentage = Math.round((correctCount / shuffledQuestions.length) * 100)
-    if (percentage >= 70) sounds.playSuccess()
-    else sounds.playFailure()
-  }
+    // Use scoreStats from blocks - this is the actual tracked data
+    const { correct: correctCount, total: totalAnswered } = scoreStats;
+
+    // Fall back to question count if no answers tracked
+    const effectiveTotal = totalAnswered > 0 ? totalAnswered : 1;
+
+    const finalStats = {
+      lessonId: rawLesson.id,
+      score: effectiveTotal > 0 ? Math.round((correctCount / effectiveTotal) * 100) : 100,
+      correctAnswers: correctCount,
+      totalQuestions: totalAnswered,
+      newWords: totalWords,
+      translationClicks,
+      cardsWithoutTranslation
+    };
+    setLessonResult(finalStats);
+    setShowSummary(true);
+    if (finalStats.score >= 70) sounds.playSuccess();
+    else sounds.playFailure();
+  };
 
   const handleFinish = () => {
     sounds.playClick()
-    onComplete({
-      lessonId: lesson.id,
-      score: Math.round((score / shuffledQuestions.length) * 100),
-      correctAnswers: score,
-      totalQuestions: shuffledQuestions.length,
-      newWords: lesson.words.length,
-      translationClicks,
-      cardsWithoutTranslation
-    })
+    localStorage.removeItem('lessonProgress'); // Clear saved progress on finish
+    if (lessonResult) {
+      onComplete(lessonResult)
+    } else {
+      // Fallback
+      onComplete({
+        lessonId: rawLesson.id,
+        score: 100,
+        correctAnswers: 0,
+        totalQuestions: 0,
+        newWords: 0,
+        translationClicks,
+        cardsWithoutTranslation
+      })
+    }
   }
 
   const resetWordCard = () => {
     setShowExample(false)
     setShowTranslation(false)
     setTranslationShownForCurrentCard(false)
-  }
-
-  const goNext = () => {
-    sounds.playNext()
-    
-    if (stage === 'theory') {
-      resetWordCard()
-      setStage(lesson.type === 'intensive' ? 'quiz' : 'words')
-      return
-    }
-    
-    if (stage === 'words') {
-      if (!translationShownForCurrentCard) {
-        setCardsWithoutTranslation(prev => prev + 1)
-      }
-      
-      resetWordCard()
-
-      if (currentWordIndex < lesson.words.length - 1) {
-        setCurrentWordIndex(currentWordIndex + 1)
-      } else {
-        setStage('quiz')
-      }
-      return
-    }
-    
-    if (stage === 'quiz') {
-      if (showFeedback) {
-        setShowFeedback(false)
-        if (currentQuestionIndex < shuffledQuestions.length - 1) {
-          setCurrentQuestionIndex(currentQuestionIndex + 1)
-        } else {
-          checkAnswers()
-        }
-        return
-      }
-      
-      const userAnswer = question.type === 'translate' ? userInput : answers[currentQuestionIndex];
-      
-      let isAnswerCorrect = false;
-      if (question.type === 'translate') {
-        isAnswerCorrect = userAnswer.toLowerCase().trim() === (question.correct || '').toLowerCase().trim();
-      } else if (question.type === 'choice' || question.type === 'fill-in-choice') {
-        // Now 'correct' is always an index
-        isAnswerCorrect = userAnswer === question.options[question.correct];
-      }
-
-      setIsCorrect(isAnswerCorrect)
-      setShowFeedback(true)
-      
-      if (isAnswerCorrect) sounds.playCorrect()
-      else sounds.playWrong()
-      
-      // Save the raw user answer for checking at the end
-      if (userAnswer !== undefined) {
-        handleAnswer(currentQuestionIndex, userAnswer);
-      }
-    }
-  }
-
-  const goBack = () => {
-    sounds.playClick()
-    resetWordCard()
-    
-    if (stage === 'words') {
-      if (currentWordIndex > 0) {
-        setCurrentWordIndex(currentWordIndex - 1)
-      } else {
-        if (lesson.type !== 'practical') setStage('theory')
-        else onClose();
-      }
-      return
-    }
-    
-    if (stage === 'quiz' && !showFeedback) {
-      if (currentQuestionIndex > 0) {
-        setCurrentQuestionIndex(currentQuestionIndex - 1)
-      } else {
-        setStage(lesson.type === 'intensive' ? 'theory' : 'words')
-      }
-    }
   }
 
   // Word card specific toggles
@@ -298,7 +699,7 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
   const skipQuestion = () => {
     if (showFeedback) return
     sounds.playClick()
-    handleAnswer(currentQuestionIndex, '___skip___')
+    handleAnswer(`${currentCycleIndex}_${currentQuestionIndex}`, '___skip___')
     setIsCorrect(false)
     setShowFeedback(true)
     setUserWords([])
@@ -310,183 +711,191 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
   const textClass = darkMode ? 'text-white' : 'text-gray-800'
   const textSecondaryClass = darkMode ? 'text-gray-300' : 'text-gray-600'
 
-  const getLessonTypeBadge = () => {
-    const types = {
-      'standard': { icon: Book, label: 'Стандартный', color: 'blue' },
-      'practical': { icon: Sparkles, label: 'Практика', color: 'purple' },
-      'intensive': { icon: Zap, label: 'Интенсив', color: 'orange' }
+  const handleNextBlock = () => {
+    if (rawLesson.isRandomMode || rawLesson.isListeningMode) {
+      triggerLessonEnd();
+      return;
     }
-    const type = types[lesson.type] || types.standard
-    const Icon = type.icon
-    
-    return (
-      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-        darkMode 
-          ? `bg-${type.color}-900/50 text-${type.color}-300 border border-${type.color}-700` 
-          : `bg-${type.color}-100 text-${type.color}-700 border border-${type.color}-300`
-      }`}>
-        <Icon className="w-3 h-3" />
-        {type.label}
-      </span>
-    )
+
+    // Check if we are in Final Exam
+    if (currentBlock === 'final-exam') {
+      triggerLessonEnd();
+      return;
+    }
+
+    const nextBlockIndex = currentBlockIndex + 1;
+    if (nextBlockIndex < blockOrder.length) {
+      setCurrentBlock(blockOrder[nextBlockIndex]);
+    } else {
+      // End of cycle
+      if (currentCycleIndex < cycles.length - 1) {
+        setCurrentCycleIndex(currentCycleIndex + 1);
+        // Force reset to first block of NEXT cycle
+        // Note: blockOrder depends on currentCycleIndex, so we need to wait for render or just predict.
+        // But useEffect handles reset? No, relying on state update.
+        // We set index + 1. Component re-renders. blockOrder recalculates for index+1.
+        // We need to set currentBlock to the first block of that new order.
+        // The first block is ALWAYS 'word-study'.
+        setCurrentBlock('word-study');
+      } else {
+        // End of ALL cycles -> Final Exam
+        setCurrentBlock('final-exam');
+      }
+    }
   }
 
-  if (stage === 'theory') {
-    return (
-        <div className={`min-h-screen ${bgClass} transition-colors duration-300`}>
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className={`absolute top-20 right-20 w-64 h-64 rounded-full blur-3xl opacity-20 ${darkMode ? 'bg-blue-500' : 'bg-purple-300'}`}></div>
-          <div className={`absolute bottom-20 left-20 w-96 h-96 rounded-full blur-3xl opacity-20 ${darkMode ? 'bg-purple-500' : 'bg-blue-300'}`}></div>
-        </div>
-        <div className="relative z-10 p-6 max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={onClose} className={`flex items-center gap-2 ${textClass} hover:underline transition`}>
-              <ArrowLeft className="w-4 h-4" /> Назад к урокам
-            </button>
-            <button onClick={toggleTheme} className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 text-yellow-400' : 'bg-gray-100 text-gray-700'} hover:scale-110 transition-transform`}>
-              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-          </div>
-          <div className={`${cardClass} rounded-2xl p-6 shadow-2xl border backdrop-blur-sm`}>
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-blue-600 dark:text-blue-400 font-semibold text-sm">{lesson.level} • Урок {lesson.number}</span>
-                {getLessonTypeBadge()}
-              </div>
-              <h1 className={`text-2xl font-bold ${textClass} mt-1`}>{lesson.title}</h1>
+  const handlePrevBlock = () => {
+    const prevBlockIndex = currentBlockIndex - 1;
+    if (prevBlockIndex >= 0) {
+      setCurrentBlock(blockOrder[prevBlockIndex]);
+    } else {
+      // Go to previous cycle
+      console.log('Cannot go back to previous cycle yet');
+    }
+  }
+
+  const renderCurrentBlock = () => {
+    if (currentBlock === 'final-exam') {
+      return <FinalExamBlock tasks={finalExamTasks} onNext={handleNextBlock} onResult={handleResult} isIntensiveMode={rawLesson.id.startsWith('intensive-')} />
+    }
+
+    // Special handling for Listening Mode - no cycles, just questions from lesson
+    if (rawLesson.isListeningMode) {
+      const listeningQuestions = rawLesson.questions || [];
+      return <ListeningModePlayer questions={listeningQuestions} onNext={handleNextBlock} />;
+    }
+
+    if (!currentCycle) {
+      return <div>Загрузка...</div>;
+    }
+    const isIntensiveMode = rawLesson.id.startsWith('intensive-');
+
+    switch (currentBlock) {
+      case 'theory':
+        return (
+          <div className="flex flex-col h-full">
+            <div className="mb-4 text-center">
+              <span className="text-sm font-medium text-purple-500 uppercase tracking-widest">📚 Теория урока</span>
             </div>
-            <div className="mb-6">
-              <h3 className={`text-lg font-semibold ${textClass} mb-2 flex items-center gap-2`}>📖 Теория</h3>
-              <p className={`${textSecondaryClass} whitespace-pre-line leading-relaxed`}>{lesson.theory}</p>
-            </div>
-            {lesson.examples && lesson.examples.length > 0 && (
-              <div className="mb-6">
-                <h3 className={`text-lg font-semibold ${textClass} mb-3 flex items-center gap-2`}>💬 Примеры</h3>
-                <div className="space-y-2">
-                  {lesson.examples.map((example, index) => (
-                    <div key={index} className={`p-4 rounded-xl ${darkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-100'}`}>
-                      <div className={`font-medium ${darkMode ? 'text-blue-300' : 'text-blue-800'}`}>{example.finnish}</div>
-                      <div className={`text-sm ${textSecondaryClass} mt-1`}>{example.russian}</div>
-                    </div>
-                  ))}
-                </div>
+            <div className="flex-1 overflow-y-auto">
+              <div className="prose prose-lg dark:prose-invert max-w-none">
+                <p className="text-lg text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
+                  {rawLesson.theory}
+                </p>
               </div>
-            )}
-            {lesson.mini_dialogues && lesson.mini_dialogues.length > 0 && (
-                <div className="mb-6">
-                <h3 className={`text-lg font-semibold ${textClass} mb-3 flex items-center gap-2`}>
-                  <MessageSquare className="w-5 h-5 text-purple-500"/> Мини-диалоги
-                </h3>
-                <div className="space-y-4">
-                  {lesson.mini_dialogues.map((dialogue, index) => (
-                    <div key={index} className={`p-4 rounded-xl ${darkMode ? 'bg-purple-900/30 border border-purple-700' : 'bg-purple-50 border border-purple-100'}`}>
-                      <h4 className={`font-semibold mb-2 ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>{dialogue.title}</h4>
-                      <div className="space-y-2">
-                        {dialogue.lines.map((line, lineIndex) => (
-                          <div key={lineIndex} className="flex gap-2">
-                            <span className={`font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{line.speaker}:</span>
-                            <span className={textSecondaryClass}>{line.line}</span>
+
+              {/* Show first mini-dialogue as example if available */}
+              {rawLesson.mini_dialogues && rawLesson.mini_dialogues[0] && (
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                  <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3">
+                    💬 Пример диалога по теме:
+                  </p>
+                  <div className="space-y-2">
+                    {rawLesson.mini_dialogues[0].lines?.slice(0, 4).map((line, idx) => (
+                      <div key={idx} className={`flex ${idx % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                        <div className={`max-w-[80%] p-3 rounded-xl ${idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-blue-100 dark:bg-blue-900/40'}`}>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium">{line.line}</p>
+                            <button onClick={() => speakWord(line.line)} className="p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-full flex-shrink-0">
+                              <Volume2 className="w-4 h-4" />
+                            </button>
                           </div>
-                        ))}
+                          {line.translation && <p className="text-xs text-gray-500 mt-1">{line.translation}</p>}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+              )}
+            </div>
+            <button
+              onClick={handleNextBlock}
+              className="mt-6 w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-lg font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+            >
+              Начать изучение слов
+              <ArrowRight className="w-6 h-6" />
+            </button>
+          </div>
+        );
+      case 'word-study':
+        if (rawLesson.isRandomMode) {
+          return <WordStudyBlock
+            words={currentCycle.words}
+            onNext={handleNextBlock}
+            isIntensiveMode={isIntensiveMode}
+            onWordChange={setRandomModeWordIndex}
+          />;
+        }
+        // Filter out review words (words that were added from previous chunks)
+        // Review words are the ones that are NOT in the original chunk for this cycle.
+        // But we computed `currentCycle.words` which includes them.
+        // We can identify them if we know which ones are new.
+        // Or simpler: pass `rawLesson` words to check against? 
+        // Actually, `currentCycle.words` has 5 words (4 new + 1 old).
+        // We assume the first 4 are new (based on how we constructed it: `[...chunk, randomPrevWord]`).
+        // So just take the first 4? `words.slice(0, 4)`?
+        // Yes, `slice(0, 4)` should work if we stick to WORDS_PER_CYCLE constant (which is 4).
+        const studyWords = (currentCycle.words || []).slice(0, 4);
+
+        return <WordStudyBlock words={studyWords} onNext={handleNextBlock} onBack={handlePrevBlock} isIntensiveMode={isIntensiveMode} />;
+      case 'mini-test':
+        // Use memoized miniTestQuestions instead of computing on every render
+        return <MiniTestBlock questions={miniTestQuestions} onNext={handleNextBlock} onBack={handlePrevBlock} onResult={handleResult} isIntensiveMode={isIntensiveMode} />;
+      case 'mini-dialogue':
+        return <MiniDialogueBlock dialogue={currentCycle.dialogues[0]} onNext={handleNextBlock} onBack={handlePrevBlock} onResult={handleResult} isIntensiveMode={isIntensiveMode} />;
+      case 'listening-task':
+        const listeningQuestion = currentCycle.questions.find(q => q.type === 'audio-choice');
+        return <ListeningTaskBlock question={listeningQuestion} onNext={handleNextBlock} onBack={handlePrevBlock} isIntensiveMode={isIntensiveMode} />;
+      case 'exercises':
+        const exerciseQuestion = currentCycle.questions.find(q => ['translate', 'fill-in', 'fill-in-choice'].includes(q.type));
+        return <ExercisesBlock question={exerciseQuestion} allWords={words} onNext={handleNextBlock} onBack={handlePrevBlock} onResult={handleResult} isIntensiveMode={isIntensiveMode} />;
+      default:
+        return null; // Cycle summary removed
+    }
+  }
+
+  const isSpecialMode = rawLesson.isRandomMode || rawLesson.isListeningMode;
+
+  if (showSummary) {
+    // For random mode, show simpler completion screen
+    if (rawLesson.isRandomMode) {
+      return (
+        <div className={`min-h-screen ${bgClass} transition-colors duration-300 flex items-center justify-center p-4`}>
+          <div className="relative z-10 w-full max-w-2xl">
+            <div className={`${cardClass} rounded-2xl p-6 shadow-2xl border text-center ${textClass}`}>
+              <div className="text-6xl mb-4">🎉</div>
+              <h1 className="text-3xl font-bold mb-4">Практика завершена!</h1>
+              <p className="text-xl mb-2">Вы изучили {lessonResult?.newWords || 0} слов</p>
+              <p className="text-gray-400">Отличная работа!</p>
+              <button
+                onClick={handleFinish}
+                className="w-full mt-6 bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-4 rounded-xl"
+              >
+                Продолжить
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`min-h-screen ${bgClass} transition-colors duration-300 flex items-center justify-center p-4`}>
+        <div className="relative z-10 w-full max-w-2xl">
+          <div className={`${cardClass} rounded-2xl p-6 shadow-2xl border text-center ${textClass}`}>
+            <h1 className="text-3xl font-bold mb-4">Урок завершен!</h1>
+            {lessonResult && (
+              <div className="space-y-2 text-lg">
+                <p>Результат: {lessonResult.score}%</p>
+                <p>Выучено слов: {lessonResult.newWords}</p>
+                <p className="text-red-500">Ошибок: {lessonResult.totalQuestions - lessonResult.correctAnswers}</p>
               </div>
             )}
-            <button onClick={goNext} className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-4 rounded-xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 shadow-lg">
-              {lesson.words.length > 0 ? 'Изучить слова' : 'Начать тест'}
-              {lesson.words.length > 0 ? <Sparkles className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (stage === 'words') {
-    const word = lesson.words[currentWordIndex];
-    const progress = ((currentWordIndex + 1) / lesson.words.length) * 100;
-
-    return (
-      <div className={`min-h-screen ${bgClass} transition-colors duration-300`}>
-        <div className="relative z-10 p-6 max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={goBack} className={`flex items-center gap-2 ${textClass} hover:underline transition`}>
-              <ArrowLeft className="w-4 h-4" /> Назад
-            </button>
-            <button onClick={onClose} className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 text-red-400' : 'bg-gray-100 text-red-600'} hover:scale-110 transition-transform`}>
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className={`${cardClass} rounded-2xl p-6 shadow-2xl border`}>
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className={`text-lg font-semibold ${textClass}`}>📝 Новые слова</h3>
-                <span className={`text-sm ${textSecondaryClass}`}>{currentWordIndex + 1} / {lesson.words.length}</span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
-              </div>
-            </div>
-            <div className={`rounded-3xl p-8 text-center mb-6 min-h-[350px] flex flex-col justify-center items-center`}>
-              <h2 className={`text-4xl md:text-5xl font-bold mb-4 ${darkMode ? 'text-blue-300' : 'text-blue-900'}`}>{word.finnish}</h2>
-              {showTranslation && <p className={`text-2xl md:text-3xl ${textSecondaryClass}`}>{word.russian}</p>}
-              {showExample && word.example_sentence && (
-                <div className={`mt-6 pt-6 border-t-2 ${darkMode ? 'border-gray-700' : 'border-gray-200'} w-full`}>
-                  <div className="flex items-center justify-center gap-3">
-                    <p className={`text-xl md:text-2xl font-medium ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>{word.example_sentence.finnish}</p>
-                    <button onClick={() => speakWord(word.example_sentence.finnish)} className="p-2 bg-purple-500/20 text-purple-500 rounded-full hover:bg-purple-500/30 transition-all">
-                      <Volume2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                  {showTranslation && <p className={`text-base md:text-lg ${textSecondaryClass} mt-2`}>{word.example_sentence.russian}</p>}
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <button onClick={() => speakWord(word.finnish)} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg ${darkMode ? 'bg-blue-900/50 text-blue-300 hover:bg-blue-800' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}`}>
-                <Volume2 className="w-5 h-5" />
-              </button>
-              <button onClick={toggleExample} disabled={!word.example_sentence} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg disabled:opacity-30 ${darkMode ? 'bg-purple-900/50 text-purple-300 hover:bg-purple-800' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}>
-                <Brain className="w-5 h-5" /> Пример
-              </button>
-              <button onClick={toggleTranslation} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg ${darkMode ? 'bg-green-900/50 text-green-300 hover:bg-green-800' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}>
-                <Globe className="w-5 h-5" /> Перевод
-              </button>
-              <button onClick={goNext} className="md:col-start-4 flex-1 flex items-center justify-center gap-2 p-3 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold">
-                 {currentWordIndex === lesson.words.length - 1 ? 'К тесту' : 'Далее'} <ArrowRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (showResults) {
-    const percentage = Math.round((score / shuffledQuestions.length) * 100)
-    const passed = percentage >= 70
-    return (
-      <div className={`min-h-screen ${bgClass} p-6 flex items-center justify-center`}>
-        <div className={`relative z-10 max-w-md w-full ${cardClass} rounded-2xl p-8 text-center shadow-2xl`}>
-          <div className={`text-6xl mb-4`}>{passed ? '🎉' : '💪'}</div>
-          <h2 className={`text-3xl font-bold ${textClass} mb-2`}>{passed ? 'Отлично!' : 'Неплохо!'}</h2>
-          <p className={`${textSecondaryClass} mb-6`}>{passed ? 'Ты прошёл урок!' : 'Попробуй еще раз.'}</p>
-          <div className={`${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-xl p-6 mb-6`}>
-            <div className={`text-5xl font-bold mb-2 ${passed ? 'text-green-500' : 'text-orange-500'}`}>{percentage}%</div>
-            <div className={textSecondaryClass}>{score} из {shuffledQuestions.length} правильных ответов</div>
-          </div>
-          <div className="space-y-3">
-            <button onClick={handleFinish} className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold py-4 rounded-xl">Завершить</button>
-            <button onClick={() => {
-                setStage(getInitialStage());
-                setCurrentQuestionIndex(0);
-                setAnswers({});
-                setShowResults(false);
-                setScore(0);
-            }} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-600'} ${textClass} font-semibold py-4 rounded-xl`}>
-              Пройти заново
+            <button
+              onClick={handleFinish}
+              className="w-full mt-6 bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-4 rounded-xl"
+            >
+              Выйти
             </button>
           </div>
         </div>
@@ -494,102 +903,68 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
     );
   }
 
-  // Quiz stage JSX
+  // Calculate progress
+  // Estimate: Each cycle has roughly 4 blocks. 
+  // We can be more precise if we want, but simple estimate is fine.
+  const totalCycles = cycles.length;
+  const progressPerCycle = 100 / Math.max(totalCycles, 1);
+  const currentBaseProgress = currentCycleIndex * progressPerCycle;
+
+  // Progress within cycle
+  const totalBlocksInCycle = blockOrder.length;
+  const progressWithinCycle = totalBlocksInCycle > 0 ? (currentBlockIndex / totalBlocksInCycle) * progressPerCycle : 0;
+
+  const currentProgress = Math.min(Math.round(currentBaseProgress + progressWithinCycle), 100);
+
   return (
-    <div className={`min-h-screen ${bgClass} transition-colors duration-300`}>
-      <div className="relative z-10 p-6 max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={goBack} className={`flex items-center gap-2 ${textClass} hover:underline`}><ArrowLeft className="w-4 h-4" /> Назад</button>
-          <span className={`font-semibold ${textClass}`}>Вопрос {currentQuestionIndex + 1} из {shuffledQuestions.length}</span>
-          <button onClick={onClose} className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-red-600'} `}><X className="w-5 h-5" /></button>
-        </div>
-        <div className={`${cardClass} rounded-2xl p-6 shadow-2xl`}>
-          <div className="mb-6">
-            <div className="flex gap-1 mb-6">
-              {shuffledQuestions.map((_, index) => (<div key={index} className={`flex-1 h-2 rounded-full ${index < currentQuestionIndex ? 'bg-green-500' : index === currentQuestionIndex ? 'bg-blue-500' : 'bg-gray-700'}`} />))}
-            </div>
-            <h3 className={`text-xl font-semibold ${textClass} mb-6`}>{question.question}</h3>
-          </div>
-          
-          {(question.isBroken) && (
-            <div className="text-center text-red-500 p-4">
-              (Ошибка генерации этого вопроса. Пожалуйста, пропустите его)
-            </div>
-          )}
+    <div className={`min-h-screen ${bgClass} transition-colors duration-300 flex flex-col items-center p-4`}>
+      {/* Header Area */}
+      <div className="w-full max-w-2xl mb-6 mt-2 relative">
 
-          {['choice', 'fill-in-choice'].includes(question.type) && !question.isBroken && (
-            <>
-              <div className="space-y-3">
-                {question.options.map((option, index) => {
-                  const isSelected = answers[currentQuestionIndex] === option
-                  const isCorrectOption = index === question.correct
-                  const showCorrect = showFeedback && isCorrectOption
-                  const showWrong = showFeedback && isSelected && !isCorrectOption
-                  return (
-                    <button key={index} onClick={() => handleAnswer(currentQuestionIndex, option)} disabled={showFeedback} className={`w-full text-left p-4 rounded-xl border-2 font-medium ${showCorrect ? 'border-green-500' : showWrong ? 'border-red-500' : isSelected ? 'border-blue-500' : 'border-gray-600 hover:border-blue-400'}`}>
-                      <span>{option}</span>
-                      {showCorrect && <CheckCircle className="w-6 h-6 text-green-500" />}
-                      {showWrong && <XCircle className="w-6 h-6 text-red-500" />}
-                    </button>
-                  )
-                })}
-              </div>
-              {showFeedback && !isCorrect && (
-                <div className={`mt-4 p-4 rounded-xl ${darkMode ? 'bg-green-900/30' : 'bg-green-50'}`}>
-                  <div className={`text-sm ${darkMode ? 'text-green-400' : 'text-green-700'} mb-1`}>Правильный ответ:</div>
-                  <div className={`text-xl font-bold ${darkMode ? 'text-green-300' : 'text-green-600'}`}>
-                    {question.options[question.correct]}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {question.type === 'translate' && !question.isBroken && (
-            <div>
-              <div className={`w-full p-4 border-2 rounded-xl mb-4 min-h-[6rem] flex flex-wrap items-center gap-2 border-gray-600`}>
-                {userWords.map((word, index) => (<button key={index} onClick={() => removeWord(index)} className={`p-2 rounded-lg font-medium bg-blue-800 text-white`}>{word}</button>))}
-                {userWords.length === 0 && !showFeedback && <span className={textSecondaryClass}>Соберите ответ...</span>}
-              </div>
-              {!showFeedback && wordOptions.length > 0 && (
-                <div className="flex flex-wrap justify-center gap-2 mb-4">
-                  {wordOptions.map((word, index) => (
-                    <button key={index} onClick={() => addWord(word)} className={`p-3 rounded-lg font-medium bg-gray-700 hover:bg-gray-600`}>{word}</button>
-                  ))}
-                </div>
-              )}
-              {!showFeedback && (
-                <div className="mt-4 flex justify-center gap-4">
-                  <button onClick={skipQuestion} className={`flex items-center justify-center gap-2 p-3 rounded-lg bg-orange-900/50 text-orange-300 hover:bg-orange-800`}>
-                    <SkipForward className="w-4 h-4" /> Пропустить
-                  </button>
-                </div>
-              )}
-              {showFeedback && !isCorrect && (
-                <div className={`mt-4 p-4 rounded-xl bg-green-900/30`}>
-                  <div className={`text-sm text-green-400 mb-1`}>Правильный ответ:</div>
-                  <div className={`text-xl font-bold text-green-300`}>
-                    {question.correct}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {showFeedback && (
-              <div className={`mt-6 mb-4 p-4 rounded-xl flex items-center gap-3 ${isCorrect ? 'bg-green-900/30' : 'bg-red-900/30'}`}>
-              {isCorrect ? (<><CheckCircle className="w-8 h-8 text-green-500 flex-shrink-0" /><div><div className={`font-bold text-green-400`}>Правильно! 🎉</div></div></>) : (<><XCircle className="w-8 h-8 text-red-500 flex-shrink-0" /><div><div className={`font-bold text-red-400`}>Неправильно</div></div></>)}
-            </div>
-          )}
-          
+        {/* Top Row: Title Center, X Right */}
+        <div className="flex items-center justify-between mb-4 relative">
           <button
-            onClick={goNext}
-            disabled={showFeedback ? false : (question.isBroken ? true : (question.type === 'translate' ? userWords.length === 0 : answers[currentQuestionIndex] === undefined))}
-            className="w-full mt-6 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold py-4 rounded-xl disabled:opacity-50"
+            onClick={handleRestart}
+            title="Начать заново"
+            className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${textClass} opacity-70 hover:opacity-100`}
           >
-            {question.isBroken ? 'Пропустить' : (showFeedback ? (currentQuestionIndex === shuffledQuestions.length - 1 ? 'Результаты' : 'Далее') : 'Проверить')}
-            <ArrowRight className="w-5 h-5" />
+            <RotateCcw className="w-5 h-5" />
           </button>
+
+          <h2 className={`text-xl font-bold text-center ${textClass} opacity-90`}>
+            {rawLesson.title}
+          </h2>
+          <button
+            onClick={onClose}
+            className={`p-2 rounded-full hover:bg-white/10 transition-colors ${textClass}`}
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full space-y-2">
+          <div className="w-full bg-gray-200/30 rounded-full h-3 backdrop-blur-sm overflow-hidden">
+            <div
+              className="bg-green-500 h-full rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${currentProgress}%` }}
+            ></div>
+          </div>
+          <div className={`text-right text-sm font-medium ${textClass} opacity-80`}>
+            {currentProgress}%
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Card */}
+      <div className="w-full max-w-2xl flex-1 flex flex-col">
+        {/* We don't need extra padding container if the Block handles it, 
+                but keeping the card style wrapper is good for consistency. 
+                Obuchenie.txt says explicitly "Lesson 3... Progress... [Current Task] ... Next".
+                So the card is the [Current Task] area.
+            */}
+        <div className={`${cardClass} rounded-2xl p-6 shadow-xl border w-full flex-1 flex flex-col justify-center`}>
+          {renderCurrentBlock()}
         </div>
       </div>
     </div>

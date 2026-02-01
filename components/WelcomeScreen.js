@@ -64,13 +64,17 @@ export default function WelcomeScreen({ telegramId }) {
         throw new Error('Failed to create/load user')
       }
     } catch (error) {
-      console.error('Error in handleStart:', error)
+      console.error('Error in handleStart. Raw object:', error);
+      console.error('Error in handleStart. Message:', error.message);
+      console.error('Error in handleStart. Details:', error.details);
+      console.error('Error in handleStart. Hint:', error.hint);
+      console.error('Error in handleStart. Code:', error.code);
       sounds.playWrong()
       
       if (error.code === '23505') {
         alert('Этот аккаунт уже зарегистрирован. Попробуйте перезагрузить страницу.')
       } else {
-        alert('Ошибка регистрации. Попробуйте ещё раз.')
+        alert(`Ошибка регистрации: ${error.message}. Попробуйте ещё раз.`)
       }
     } finally {
       setIsLoading(false)
