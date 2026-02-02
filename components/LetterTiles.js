@@ -9,10 +9,10 @@ export default function LetterTiles({ correctAnswer, onSubmit, onSkip }) {
     // Инициализация: разбиваем правильный ответ на буквы и перемешиваем
     const letters = correctAnswer.toLowerCase().split('');
     const shuffled = [...letters].sort(() => Math.random() - 0.5);
-    setAvailableLetters(shuffled.map((letter, index) => ({ 
-      letter, 
+    setAvailableLetters(shuffled.map((letter, index) => ({
+      letter,
       id: `${letter}_${index}`,
-      used: false 
+      used: false
     })));
     setSelectedLetters([]);
   }, [correctAnswer]);
@@ -23,7 +23,7 @@ export default function LetterTiles({ correctAnswer, onSubmit, onSkip }) {
     if (!letterObj || letterObj.used) return;
 
     setSelectedLetters(prev => [...prev, letterObj]);
-    setAvailableLetters(prev => 
+    setAvailableLetters(prev =>
       prev.map(l => l.id === letterId ? { ...l, used: true } : l)
     );
   };
@@ -34,7 +34,7 @@ export default function LetterTiles({ correctAnswer, onSubmit, onSkip }) {
 
     const lastLetter = selectedLetters[selectedLetters.length - 1];
     setSelectedLetters(prev => prev.slice(0, -1));
-    setAvailableLetters(prev => 
+    setAvailableLetters(prev =>
       prev.map(l => l.id === lastLetter.id ? { ...l, used: false } : l)
     );
   };
@@ -61,19 +61,19 @@ export default function LetterTiles({ correctAnswer, onSubmit, onSkip }) {
   const isComplete = selectedLetters.length === correctAnswer.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Поле с выбранными буквами */}
-      <div 
+      <div
         onClick={removeLastLetter}
-        className="min-h-[80px] bg-gray-800/50 rounded-xl p-4 border-2 border-gray-700 flex items-center justify-center flex-wrap gap-2 cursor-pointer hover:bg-gray-800/70 transition-all"
+        className="min-h-[60px] sm:min-h-[80px] bg-gray-800/50 rounded-xl p-3 sm:p-4 border-2 border-gray-700 flex items-center justify-center flex-wrap gap-1.5 sm:gap-2 cursor-pointer hover:bg-gray-800/70 transition-all"
       >
         {selectedLetters.length === 0 ? (
-          <span className="text-gray-500 text-sm">Нажимайте на буквы ниже 👇</span>
+          <span className="text-gray-500 text-xs sm:text-sm">Нажимайте на буквы ниже 👇</span>
         ) : (
           selectedLetters.map((letterObj, index) => (
             <div
               key={`selected_${letterObj.id}_${index}`}
-              className="w-12 h-12 bg-blue-500 text-white font-bold text-xl rounded-lg flex items-center justify-center shadow-lg animate-in fade-in zoom-in duration-200"
+              className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 text-white font-bold text-lg sm:text-xl rounded-lg flex items-center justify-center shadow-lg animate-in fade-in zoom-in duration-200"
             >
               {letterObj.letter}
             </div>
@@ -82,26 +82,23 @@ export default function LetterTiles({ correctAnswer, onSubmit, onSkip }) {
       </div>
 
       {/* Подсказка */}
-      <div className="text-center text-gray-400 text-sm">
+      <div className="text-center text-gray-400 text-[10px] sm:text-xs">
         {selectedLetters.length > 0 && (
-          <p>
-            Нажмите на поле сверху, чтобы убрать последнюю букву
-          </p>
+          <p>Нажмите сверху, чтобы убрать букву</p>
         )}
       </div>
 
       {/* Доступные буквы */}
-      <div className="flex flex-wrap gap-2 justify-center">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
         {availableLetters.map((letterObj) => (
           <button
             key={letterObj.id}
             onClick={() => selectLetter(letterObj.id)}
             disabled={letterObj.used}
-            className={`w-12 h-12 font-bold text-xl rounded-lg transition-all ${
-              letterObj.used
-                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                : 'bg-gray-700 text-white hover:bg-gray-600 active:scale-95'
-            }`}
+            className={`w-10 h-10 sm:w-12 sm:h-12 font-bold text-base sm:text-xl rounded-lg transition-all ${letterObj.used
+                ? 'bg-gray-800 text-gray-600 cursor-not-allowed opacity-30'
+                : 'bg-gray-700 text-white hover:bg-gray-600 active:scale-95 shadow-sm'
+              }`}
           >
             {letterObj.letter}
           </button>
@@ -112,39 +109,38 @@ export default function LetterTiles({ correctAnswer, onSubmit, onSkip }) {
       <div className="flex gap-2">
         <button
           onClick={reset}
-          className="flex-1 bg-gray-700 text-white py-3 rounded-xl hover:bg-gray-600 transition-all flex items-center justify-center gap-2"
+          className="flex-1 bg-gray-700 text-white py-2.5 sm:py-3 rounded-xl hover:bg-gray-600 transition-all flex items-center justify-center gap-2 text-sm sm:text-base border border-gray-600"
         >
-          <RotateCcw className="w-5 h-5" />
+          <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
           Сбросить
         </button>
         <button
           onClick={shuffleLetters}
-          className="flex-1 bg-gray-700 text-white py-3 rounded-xl hover:bg-gray-600 transition-all flex items-center justify-center gap-2"
+          className="flex-1 bg-gray-700 text-white py-2.5 sm:py-3 rounded-xl hover:bg-gray-600 transition-all flex items-center justify-center gap-2 text-sm sm:text-base border border-gray-600"
         >
-          <Shuffle className="w-5 h-5" />
+          <Shuffle className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
           Перемешать
         </button>
       </div>
 
       {/* Кнопки действий */}
-      <div className="space-y-2">
+      <div className="space-y-2 pt-2">
         <button
           onClick={checkAnswer}
           disabled={!isComplete}
-          className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${
-            isComplete
-              ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:shadow-lg hover:shadow-blue-500/50'
-              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-          }`}
+          className={`w-full py-3.5 sm:py-4 rounded-xl font-bold text-base sm:text-lg transition-all active:scale-[0.98] ${isComplete
+              ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/20'
+              : 'bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-700'
+            }`}
         >
-          Проверить →
+          Проверить
         </button>
 
         <button
           onClick={onSkip}
-          className="w-full bg-red-500/20 text-red-400 py-3 rounded-xl hover:bg-red-500/30 transition-all font-medium"
+          className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2.5 sm:py-3 rounded-xl transition-all font-medium text-xs sm:text-sm"
         >
-          ❓ Пропустить
+          ❓ Пропустить вопрос
         </button>
       </div>
     </div>

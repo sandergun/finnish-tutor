@@ -282,20 +282,20 @@ export default function Dashboard() {
       </footer>
 
       {/* Floating scroll buttons */}
-      <div className="fixed left-[calc(50%-36rem)] top-1/2 transform -translate-y-1/2 z-40 flex flex-col gap-16 hidden xl:flex">
+      <div className="fixed right-6 bottom-24 xl:right-auto xl:left-[calc(50%-36rem)] xl:top-1/2 xl:transform xl:-translate-y-1/2 z-40 flex flex-col items-center gap-4 xl:gap-16">
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="p-4 bg-gray-800/80 backdrop-blur-sm hover:bg-gray-700 text-white rounded-full shadow-lg transition-all hover:scale-110 border border-gray-700"
+          className="p-3 xl:p-4 bg-gray-800/80 backdrop-blur-sm hover:bg-gray-700 text-white rounded-full shadow-lg transition-all hover:scale-110 border border-gray-700 active:scale-95"
           aria-label="В начало"
         >
-          <ChevronUp className="w-8 h-8" />
+          <ChevronUp className="w-6 h-6 xl:w-8 xl:h-8" />
         </button>
         <button
           onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
-          className="p-4 bg-gray-800/80 backdrop-blur-sm hover:bg-gray-700 text-white rounded-full shadow-lg transition-all hover:scale-110 border border-gray-700"
+          className="p-3 xl:p-4 bg-gray-800/80 backdrop-blur-sm hover:bg-gray-700 text-white rounded-full shadow-lg transition-all hover:scale-110 border border-gray-700 active:scale-95"
           aria-label="В конец"
         >
-          <ChevronDown className="w-8 h-8" />
+          <ChevronDown className="w-6 h-6 xl:w-8 xl:h-8" />
         </button>
       </div>
 
@@ -409,16 +409,16 @@ function LessonsTab({ lessons, loading, userLevel, user, onStartLesson, isLesson
           const isRecommended = lesson.level === userLevel;
           return (
             <div key={lesson.id} className={`${cardClass} backdrop-blur-sm rounded-2xl p-5 mx-4 border-2 transition-all hover:scale-[1.01] ${isRecommended ? 'border-purple-500/50' : 'border-transparent'}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className={`text-sm font-semibold px-2 py-1 rounded ${isRecommended ? (darkMode ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-700') : (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-500')}`}>{lesson.level}</span>
-                    {isRecommended && <Star className="w-5 h-5 text-yellow-400 fill-current" />}
+                    <span className={`text-sm font-semibold px-2 py-1 rounded shrink-0 ${isRecommended ? (darkMode ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-700') : (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-500')}`}>{lesson.level}</span>
+                    {isRecommended && <Star className="w-5 h-5 text-yellow-400 fill-current shrink-0" />}
                   </div>
-                  <h3 className={`text-lg font-bold ${textClass}`}>{lesson.title}</h3>
+                  <h3 className={`text-lg font-bold ${textClass} break-words line-clamp-2`}>{lesson.title}</h3>
                   <p className={`text-sm ${textSecondaryClass} mt-1`}>{lesson.words?.length || 0} слов • {lesson.questions?.length || 0} вопросов</p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-t-0 border-gray-700/50">
                   {completed ? (
                     <div className="flex flex-col items-center">
                       <CheckCircle className="w-6 h-6 text-green-500" />
@@ -430,11 +430,11 @@ function LessonsTab({ lessons, loading, userLevel, user, onStartLesson, isLesson
                       <span className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider">Начат</span>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center px-2">
+                    <div className="flex flex-col items-center px-1">
                       <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full font-bold uppercase tracking-wider">New</span>
                     </div>
                   )}
-                  <button onClick={() => onStartLesson(lesson)} className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 py-3 rounded-xl font-semibold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 shadow-lg"><Play className="w-4 h-4" /> {isStarted ? 'Продолжить' : 'Начать'}</button>
+                  <button onClick={() => onStartLesson(lesson)} className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-lg flex-1 sm:flex-none whitespace-nowrap"><Play className="w-4 h-4 text-white" /> {isStarted ? 'Продолжить' : 'Начать'}</button>
                 </div>
               </div>
             </div>

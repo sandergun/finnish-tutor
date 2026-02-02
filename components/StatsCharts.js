@@ -184,17 +184,17 @@ export default function StatsCharts({ progress = [], lessons = [] }) {
   }, [progress, lessons]);
 
   const StatCard = ({ icon: Icon, label, value, color, subtitle }) => (
-    <div className={`bg-gradient-to-br from-${color}-500/10 to-${color}-600/5 rounded-2xl p-6 border border-${color}-500/20`}>
+    <div className={`bg-gradient-to-br from-${color}-500/10 to-${color}-600/5 rounded-2xl p-4 sm:p-6 border border-${color}-500/20`}>
       <div className="flex items-start justify-between mb-3">
-        <div className={`p-3 bg-${color}-500/20 rounded-xl`}>
-          <Icon className={`w-6 h-6 text-${color}-400`} />
+        <div className={`p-2 sm:p-3 bg-${color}-500/20 rounded-xl`}>
+          <Icon className={`w-5 h-5 sm:w-6 sm:h-6 text-${color}-400`} />
         </div>
         <div className="text-right">
-          <div className="text-3xl font-bold text-white">{value}</div>
-          {subtitle && <div className="text-sm text-gray-400 mt-1">{subtitle}</div>}
+          <div className="text-2xl sm:text-3xl font-bold text-white tabular-nums">{value}</div>
+          {subtitle && <div className="text-[10px] sm:text-sm text-gray-400 mt-0.5 sm:mt-1 truncate max-w-[80px] sm:max-w-none">{subtitle}</div>}
         </div>
       </div>
-      <div className="text-gray-400 text-sm font-medium">{label}</div>
+      <div className="text-gray-400 text-[11px] sm:text-sm font-medium leading-tight">{label}</div>
     </div>
   );
 
@@ -210,7 +210,7 @@ export default function StatsCharts({ progress = [], lessons = [] }) {
       </div>
 
       {/* Карточки статистики */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           icon={Target}
           label="Уроков завершено"

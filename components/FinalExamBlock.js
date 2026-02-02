@@ -40,9 +40,9 @@ export default function FinalExamBlock({ tasks, onNext, onResult, isIntensiveMod
 
     return (
         <div className="w-full h-full flex flex-col">
-            <div className="mb-4 text-center">
-                <span className="text-sm font-bold text-purple-500 uppercase tracking-widest">
-                    Финальный экзамен • Задание {currentTaskIndex + 1} из {tasks.length}
+            <div className="mb-3 sm:mb-4 text-center">
+                <span className="text-[10px] sm:text-sm font-bold text-purple-500 uppercase tracking-widest bg-purple-500/10 px-3 py-1 rounded-full">
+                    Экзамен • {currentTaskIndex + 1} / {tasks.length}
                 </span>
             </div>
 

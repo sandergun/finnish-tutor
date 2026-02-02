@@ -523,11 +523,11 @@ export default function AdminPanel({ darkMode, onLessonGenerated, user, fullProg
       </div>
 
       <div className="flex gap-2 mb-6 flex-wrap">
-        <button onClick={() => setActiveTab('generate')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'generate' ? 'bg-purple-500 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><Plus className="w-4 h-4" />Создать урок</button>
-        <button onClick={() => setActiveTab('situations')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'situations' ? 'bg-purple-500 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><MessageSquare className="w-4 h-4" />Ситуации</button>
-        <button onClick={() => setActiveTab('stats')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'stats' ? 'bg-purple-500 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><BarChart3 className="w-4 h-4" />Статистика</button>
-        <button onClick={() => setActiveTab('manage')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'manage' ? 'bg-purple-500 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><Eye className="w-4 h-4" />Управление</button>
-        <button onClick={() => setActiveTab('settings')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'settings' ? 'bg-purple-500 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><Settings className="w-4 h-4" />Настройки</button>
+        <button onClick={() => setActiveTab('generate')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'generate' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><Plus className="w-4 h-4" /> <span className="text-sm">Создать</span></button>
+        <button onClick={() => setActiveTab('situations')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'situations' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><MessageSquare className="w-4 h-4" /> <span className="text-sm">Ситуации</span></button>
+        <button onClick={() => setActiveTab('stats')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'stats' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><BarChart3 className="w-4 h-4" /> <span className="text-sm">Старт</span></button>
+        <button onClick={() => setActiveTab('manage')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'manage' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><Eye className="w-4 h-4" /> <span className="text-sm">Инфо</span></button>
+        <button onClick={() => setActiveTab('settings')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'settings' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><Settings className="w-4 h-4" /> <span className="text-sm">Настр.</span></button>
       </div>
 
       {result && <div className="mb-4 p-4 rounded-lg bg-green-900/50 text-green-300 border border-green-700 flex items-center gap-3"><Check className="w-5 h-5" />{result.message}</div>}
@@ -540,62 +540,55 @@ export default function AdminPanel({ darkMode, onLessonGenerated, user, fullProg
 
             {/* Generation Controls */}
             <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700 mb-6 space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-1 flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Тема ситуации (опционально)..."
-                    value={situationTopic}
-                    onChange={(e) => setSituationTopic(e.target.value)}
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:ring-2 focus:ring-purple-500 outline-none"
-                  />
-                  <button
-                    onClick={() => handleGenerateSituation('manual', situationTopic)}
-                    disabled={situationGenLoading || !situationTopic.trim()}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed font-bold"
-                    title="Создать ситуацию по этой теме"
-                  >
-                    {situationGenLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    Сгенерировать
-                  </button>
-                </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="text"
+                  placeholder="Тема ситуации (опционально)..."
+                  value={situationTopic}
+                  onChange={(e) => setSituationTopic(e.target.value)}
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+                <button
+                  onClick={() => handleGenerateSituation('manual', situationTopic)}
+                  disabled={situationGenLoading || !situationTopic.trim()}
+                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed font-bold shadow-lg shadow-blue-500/20"
+                  title="Создать ситуацию по этой теме"
+                >
+                  {situationGenLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  Сгенерировать
+                </button>
               </div>
-              <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-800">
-
-                {/* 2. Auto AI */}
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-800">
                 <button
                   onClick={() => handleGenerateSituation('auto')}
                   disabled={situationGenLoading}
-                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-lg transition disabled:opacity-50 text-sm"
                   title="AI подберет тему под уровень"
                 >
                   {situationGenLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
                   AI: Авто
                 </button>
 
-                {/* 3. Random AI */}
                 <button
                   onClick={() => handleGenerateSituation('random')}
                   disabled={situationGenLoading}
-                  className="flex items-center gap-2 bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-pink-600 hover:bg-pink-500 text-white px-4 py-2.5 rounded-lg transition disabled:opacity-50 text-sm"
                   title="Случайная бытовая ситуация"
                 >
                   {situationGenLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                   AI: Рандом
                 </button>
 
-                {/* Manual Editor (No AI) */}
                 <button
                   onClick={() => { setEditingSituation(null); setIsSituationEditorOpen(true); }}
-                  className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition ml-auto border border-gray-600"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg transition border border-gray-600 text-sm"
                 >
-                  <Plus className="w-4 h-4" /> Ручной ввод
+                  <Plus className="w-4 h-4" /> Ручной
                 </button>
 
-                {/* Delete All Situations */}
                 <button
                   onClick={handleDeleteAllSituations}
-                  className="flex items-center gap-2 bg-red-900/20 hover:bg-red-900/40 text-red-400 px-4 py-2 rounded-lg transition border border-red-900/30"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-900/20 hover:bg-red-900/40 text-red-400 px-4 py-2.5 rounded-lg transition border border-red-900/30 text-sm"
                   title="Удалить ВСЕ ситуации"
                 >
                   <Trash2 className="w-4 h-4" /> Удалить все
@@ -689,11 +682,11 @@ export default function AdminPanel({ darkMode, onLessonGenerated, user, fullProg
 
       {activeTab === 'manage' && (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-white">Все AI-уроки ({lessons.length})</h3>
-            <div className="flex gap-2">
-              <button onClick={loadLessons} className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"><RefreshCw className="w-4 h-4" />Обновить</button>
-              <button onClick={deleteAllLessons} className="flex items-center gap-2 px-4 py-2 bg-red-900/50 text-red-300 rounded-lg hover:bg-red-800/50 transition"><Trash2 className="w-4 h-4" />Удалить все</button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <h3 className="text-xl font-bold text-white whitespace-nowrap">Все AI-уроки ({lessons.length})</h3>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button onClick={loadLessons} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition border border-gray-700"><RefreshCw className="w-4 h-4" />Обновить</button>
+              <button onClick={deleteAllLessons} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-red-900/40 text-red-300 rounded-lg hover:bg-red-900/60 transition border border-red-900/30"><Trash2 className="w-4 h-4" />Удалить все</button>
             </div>
           </div>
 

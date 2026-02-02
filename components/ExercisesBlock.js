@@ -149,17 +149,17 @@ export default function ExercisesBlock({ question, allWords, onNext, onBack, onR
     };
 
     return (
-        <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full mx-auto flex flex-col items-center">
+        <div className="p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full flex flex-col items-center">
             {isAssembleMode && (
                 <div className="w-full">
-                    <p className="text-sm text-center text-gray-500 uppercase tracking-widest mb-4">Соберите фразу</p>
-                    <h2 className="text-2xl font-bold mb-6 text-center">{question.question}</h2>
+                    <p className="text-[10px] sm:text-sm text-center text-gray-500 uppercase tracking-widest mb-3 sm:mb-4">Соберите фразу</p>
+                    <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center leading-tight">{question.question}</h2>
 
-                    <div className="relative min-h-[4rem] mb-6">
-                        <div className="w-full p-4 text-lg border-2 border-gray-200 rounded-xl bg-gray-50 dark:bg-gray-700 min-h-[4rem] flex flex-wrap gap-2 items-center">
-                            {userWords.length === 0 && <span className="text-gray-400">Выберите слова...</span>}
+                    <div className="relative min-h-[3.5rem] sm:min-h-[4rem] mb-4 sm:mb-6">
+                        <div className="w-full p-3 sm:p-4 text-base sm:text-lg border-2 border-gray-200 rounded-xl bg-gray-50 dark:bg-gray-700 min-h-[3.5rem] sm:min-h-[4rem] flex flex-wrap gap-1.5 sm:gap-2 items-center">
+                            {userWords.length === 0 && <span className="text-gray-400 text-sm">Выберите слова...</span>}
                             {userWords.map((word, index) => (
-                                <button key={index} onClick={() => removeWord(index)} className="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-colors shadow-sm animate-in fade-in zoom-in duration-200">
+                                <button key={index} onClick={() => removeWord(index)} className="bg-blue-600 text-white px-2.5 py-1 sm:px-3 sm:py-1 rounded-lg hover:bg-blue-700 transition-colors shadow-sm animate-in fade-in zoom-in duration-200 text-sm sm:text-base">
                                     {word}
                                 </button>
                             ))}
@@ -167,16 +167,16 @@ export default function ExercisesBlock({ question, allWords, onNext, onBack, onR
                         {userWords.length > 0 && !feedback && (
                             <button
                                 onClick={() => setUserWords([])}
-                                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-2"
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1.5"
                             >
                                 ✕
                             </button>
                         )}
                     </div>
 
-                    <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-900 min-h-[6rem] flex flex-wrap justify-center gap-2">
+                    <div className="p-3 sm:p-4 rounded-xl bg-gray-50 dark:bg-gray-900 min-h-[5rem] sm:min-h-[6rem] flex flex-wrap justify-center gap-1.5 sm:gap-2">
                         {wordOptions.map((word, index) => (
-                            <button key={index} onClick={() => addWord(word)} disabled={!!feedback} className="bg-white border border-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-100 transition-all shadow-sm active:scale-95 disabled:opacity-50">
+                            <button key={index} onClick={() => addWord(word)} disabled={!!feedback} className="bg-white border border-gray-300 text-gray-800 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg hover:bg-gray-100 transition-all shadow-sm active:scale-95 disabled:opacity-50 text-sm sm:text-base">
                                 {word}
                             </button>
                         ))}
@@ -186,27 +186,27 @@ export default function ExercisesBlock({ question, allWords, onNext, onBack, onR
 
             {isInsertMode && (
                 <div className="w-full">
-                    <p className="text-sm text-center text-gray-500 uppercase tracking-widest mb-4">Вставьте слово</p>
-                    <h2 className="text-2xl font-bold mb-8 text-center leading-relaxed">
+                    <p className="text-[10px] sm:text-sm text-center text-gray-500 uppercase tracking-widest mb-3 sm:mb-4">Вставьте слово</p>
+                    <h2 className="text-lg sm:text-2xl font-bold mb-6 sm:mb-8 text-center leading-relaxed">
                         {question.question.replace('______', '________').split('________').map((part, i, arr) => (
                             <span key={i}>
                                 {part}
                                 {i < arr.length - 1 && (
-                                    <span className={`inline-block border-b-2 px-2 mx-1 font-medium ${selectedOption ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-gray-300'}`}>
-                                        {selectedOption || '?'}
+                                    <span className={`inline-block border-b-2 px-1 mx-0.5 font-medium ${selectedOption ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-gray-300'}`}>
+                                        {selectedOption || '...'}
                                     </span>
                                 )}
                             </span>
                         ))}
                     </h2>
 
-                    <div className="flex flex-col gap-3 w-full max-w-md mx-auto">
+                    <div className="flex flex-col gap-2 sm:gap-3 w-full max-w-sm mx-auto">
                         {wordOptions.map((option, index) => (
                             <button
                                 key={index}
                                 onClick={() => handleOptionSelect(option)}
                                 disabled={!!feedback}
-                                className={`w-full p-4 rounded-xl text-lg font-medium transition-all border-2 ${selectedOption === option
+                                className={`w-full p-3 sm:p-4 rounded-xl text-base sm:text-lg font-medium transition-all border-2 ${selectedOption === option
                                     ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                                     : 'border-gray-200 bg-white hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700'
                                     }`}
@@ -219,85 +219,53 @@ export default function ExercisesBlock({ question, allWords, onNext, onBack, onR
             )}
 
             {/* Feedback Areas */}
-            {feedback === 'incorrect' && (
-                <div className="w-full mt-6 p-4 rounded-xl bg-red-50 text-red-900 border border-red-100 flex flex-col items-center">
-                    <p className="font-bold mb-1">Неверно</p>
-                    {isAssembleMode ? (
-                        <div className="mt-2 p-3 bg-white rounded-lg border border-red-200 w-full">
-                            <p className="text-sm text-gray-500 mb-1">Правильный ответ:</p>
+            {feedback && (
+                <div className={`w-full mt-6 p-4 rounded-xl border flex flex-col items-center animate-in fade-in slide-in-from-bottom-2 ${feedback === 'correct' ? 'bg-green-50 text-green-900 border-green-100' : feedback === 'skipped' ? 'bg-yellow-50 text-yellow-900 border-yellow-200' : 'bg-red-50 text-red-900 border-red-100'}`}>
+                    <p className="font-bold text-sm sm:text-base mb-1 uppercase tracking-wider">{feedback === 'correct' ? 'Правильно! 🎉' : feedback === 'skipped' ? 'Пропущено' : 'Неверно'}</p>
+
+                    {(feedback === 'incorrect' || feedback === 'skipped') && (
+                        <div className={`mt-2 p-3 bg-white rounded-lg border w-full ${feedback === 'incorrect' ? 'border-red-200' : 'border-yellow-200'}`}>
+                            <p className="text-[10px] text-gray-500 uppercase font-semibold mb-1">Правильный ответ:</p>
                             <div className="flex items-center justify-center gap-2">
-                                <p className="text-lg font-medium text-gray-800">{question.correct}</p>
-                                <button onClick={() => speakPhrase(question.correct)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full flex-shrink-0">
-                                    <Volume2 className="w-5 h-5" />
+                                <p className="text-base sm:text-lg font-medium text-gray-800">{question.correct}</p>
+                                <button onClick={() => speakPhrase(question.correct)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-full flex-shrink-0">
+                                    <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </button>
                             </div>
                         </div>
-                    ) : (
-                        <p>Правильный ответ: {question.correct}</p>
                     )}
-                    {isInsertMode && fullSentence && (
+
+                    {feedback === 'incorrect' && isInsertMode && fullSentence && (
                         <div className="mt-3 p-3 bg-white rounded-lg border border-red-200 w-full">
-                            <p className="text-sm text-gray-500 mb-1">Полная фраза:</p>
-                            <div className="flex items-center justify-center gap-2">
-                                <p className="text-lg font-medium text-gray-800">{fullSentence}</p>
-                                <button onClick={() => speakPhrase(fullSentence)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full flex-shrink-0">
-                                    <Volume2 className="w-5 h-5" />
+                            <p className="text-[10px] text-gray-500 uppercase font-semibold mb-1">Полная фраза:</p>
+                            <div className="flex items-center justify-center gap-2 text-center">
+                                <p className="text-sm sm:text-base font-medium text-gray-800 break-words">{fullSentence}</p>
+                                <button onClick={() => speakPhrase(fullSentence)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-full flex-shrink-0">
+                                    <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </button>
                             </div>
                         </div>
                     )}
-                    <p className="text-sm opacity-80 mt-2">{getTranslation(question)}</p>
-                </div>
-            )}
 
-            {feedback === 'correct' && (
-                <div className="w-full mt-6 p-4 rounded-xl bg-green-50 text-green-900 border border-green-100 flex flex-col items-center">
-                    <p className="font-bold text-xl mb-2">Правильно! 🎉</p>
-                    {isInsertMode && fullSentence ? (
+                    {(feedback === 'correct' && isInsertMode && fullSentence) && (
                         <div className="mt-2 p-3 bg-white rounded-lg border border-green-200 w-full">
-                            <p className="text-sm text-gray-500 mb-1">Полная фраза:</p>
-                            <div className="flex items-center justify-center gap-2">
-                                <p className="text-lg font-medium text-gray-800">{fullSentence}</p>
-                                <button onClick={() => speakPhrase(fullSentence)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full flex-shrink-0">
-                                    <Volume2 className="w-5 h-5" />
+                            <div className="flex items-center justify-center gap-2 text-center">
+                                <p className="text-sm sm:text-base font-medium text-gray-800 break-words">{fullSentence}</p>
+                                <button onClick={() => speakPhrase(fullSentence)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-full flex-shrink-0">
+                                    <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </button>
                             </div>
                         </div>
-                    ) : isAssembleMode ? (
-                        <div className="mt-2 p-3 bg-white rounded-lg border border-green-200 w-full">
-                            <div className="flex items-center justify-center gap-2">
-                                <p className="text-lg font-medium text-gray-800">{question.correct}</p>
-                                <button onClick={() => speakPhrase(question.correct)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full flex-shrink-0">
-                                    <Volume2 className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <p className="text-lg font-medium">{question.correct}</p>
                     )}
-                    <p className="text-sm opacity-80 mt-2 italic">{getTranslation(question)}</p>
+
+                    <p className="text-xs sm:text-sm opacity-80 mt-2 text-center italic">{getTranslation(question)}</p>
                 </div>
             )}
 
-            {feedback === 'skipped' && (
-                <div className="w-full mt-6 p-4 rounded-xl bg-yellow-50 text-yellow-900 border border-yellow-200 flex flex-col items-center">
-                    <p className="font-bold text-lg mb-2">Пропущено</p>
-                    <div className="mt-2 p-3 bg-white rounded-lg border border-yellow-200 w-full">
-                        <p className="text-sm text-gray-500 mb-1">Правильный ответ:</p>
-                        <div className="flex items-center justify-center gap-2">
-                            <p className="text-lg font-medium text-gray-800">{question.correct}</p>
-                            <button onClick={() => speakPhrase(question.correct)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full flex-shrink-0">
-                                <Volume2 className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="w-full mt-8 flex gap-4">
+            <div className="w-full mt-6 sm:mt-8 flex gap-3 sm:gap-4">
                 <button
                     onClick={onBack}
-                    className="p-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    className="p-3.5 sm:p-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                     <ArrowLeft className="w-6 h-6" />
                 </button>
@@ -305,18 +273,18 @@ export default function ExercisesBlock({ question, allWords, onNext, onBack, onR
                     <button
                         onClick={handleCheck}
                         disabled={isAssembleMode ? userWords.length === 0 : !selectedOption}
-                        className="flex-grow bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-98"
+                        className="flex-grow bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3.5 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 text-sm sm:text-base"
                     >
                         Проверить
                     </button>
                 ) : (
-                    <button onClick={onNext} className="flex-grow bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all transform active:scale-98">
-                        Продолжить
+                    <button onClick={onNext} className="flex-grow bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold py-3.5 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all transform active:scale-95 text-sm sm:text-base">
+                        {feedback === 'skipped' ? 'Дальше' : 'Далее'}
                     </button>
                 )}
 
                 {!feedback && (
-                    <button onClick={handleSkip} className="p-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors" title="Пропустить">
+                    <button onClick={handleSkip} className="p-3.5 sm:p-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors" title="Пропустить">
                         <SkipForward className="w-6 h-6" />
                     </button>
                 )}
