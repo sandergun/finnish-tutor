@@ -4,15 +4,20 @@ import AchievementPopup from './AchievementPopup'
 import AdminPanel from './AdminPanel'
 import Achievements from './Achievements'
 import StatsCharts from './StatsCharts'
-import { BookOpen, Trophy, BarChart3, User, Sparkles, CheckCircle, Play, Moon, Sun, Volume2, VolumeX, Star, Loader2, Zap, Brain, Pencil, Headphones, LogOut, ChevronUp, ChevronDown } from 'lucide-react'
+import SituationsTab from './SituationsTab'
+import { BookOpen, Trophy, BarChart3, User, Sparkles, CheckCircle, Play, Moon, Sun, Volume2, VolumeX, Star, Loader2, Zap, Brain, Pencil, Headphones, LogOut, ChevronUp, ChevronDown, Eye, MessageSquare } from 'lucide-react'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useUserStore } from '@/store/useUserStore'
+import { useAchievementsStore } from '@/store/useAchievementsStore' // Import achievements store
 import LessonPlayer from './LessonPlayer'
 import { getAllLessons, getRandomWordsLesson, getIntensiveLesson, getListeningLesson } from '@/lib/lessonsData'
 import { sounds } from '@/lib/sounds'
 
 export default function Dashboard() {
-  const { user, isLessonCompleted, saveProgress, fullProgress, logout } = useUserStore()
+  const { user, isLessonCompleted, saveProgress, fullProgress, logout, startLesson, progressData, refreshProgress, subscribeToProgress, resetProfile } = useUserStore()
+  const { achievements } = useAchievementsStore() // Get achievements from store
+  const earnedAchievementsCount = achievements.filter(a => a.earned).length; // Calculate earned count based on store state
+
   const [activeTab, setActiveTab] = useState('lessons')
   const [currentLesson, setCurrentLesson] = useState(null)
   const [soundEnabled, setSoundEnabled] = useState(true)
@@ -53,7 +58,28 @@ export default function Dashboard() {
     const enabled = savedSound !== 'false'
     setSoundEnabled(enabled)
     sounds.setEnabled(enabled)
-  }, [])
+
+    // Initial refresh
+    refreshProgress();
+
+    // Subscribe to realtime changes
+    const unsubscribe = subscribeToProgress();
+
+
+
+    // Refetch on window focus
+    const onFocus = () => {
+      console.log('👀 Window focused, refreshing progress...');
+      refreshProgress();
+    };
+
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      if (unsubscribe) unsubscribe();
+    };
+  }, [refreshProgress, subscribeToProgress])
 
   if (!mounted) {
     return (
@@ -190,7 +216,7 @@ export default function Dashboard() {
               <div className="text-xs text-blue-100">Слов</div>
             </div>
             <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center hover:bg-white/20 transition-all hover:scale-105">
-              <div className="text-2xl font-bold">{user?.achievements?.length || 0}</div>
+              <div className="text-2xl font-bold">{earnedAchievementsCount}</div>
               <div className="text-xs text-blue-100">Наград</div>
             </div>
           </div>
@@ -203,8 +229,14 @@ export default function Dashboard() {
             lessons={lessons}
             loading={loading}
             userLevel={user?.level}
-            onStartLesson={(lesson) => { sounds.playClick(); setCurrentLesson(lesson); }}
+            onStartLesson={(lesson) => {
+              sounds.playClick();
+              startLesson(lesson.id);
+              setCurrentLesson(lesson);
+            }}
             isLessonCompleted={isLessonCompleted}
+            progressData={progressData}
+            user={user}
             darkMode={true}
             onStartRandomWords={handleStartRandomWords}
             randomWordsLoading={randomWordsLoading}
@@ -215,13 +247,26 @@ export default function Dashboard() {
           />
         )}
         {activeTab === 'achievements' && <Achievements darkMode={true} />}
-        {activeTab === 'profile' && <ProfileTab user={user} darkMode={true} />}
+        {activeTab === 'situations' && <SituationsTab darkMode={true} />}
+        {activeTab === 'profile' && <ProfileTab user={user} progressData={progressData} lessons={lessons} darkMode={true} />}
         {activeTab === 'admin' && (
           <AdminPanel
             user={user}
             darkMode={true}
             onLessonGenerated={loadLessons}
-            fullProgress={fullProgress}
+            fullProgress={progressData}
+            allLessons={lessons}
+            onResetProfile={async () => {
+              const success = await resetProfile();
+              if (success) {
+                sounds.playSuccess();
+                refreshProgress();
+                setActiveTab('profile');
+                alert('Профиль успешно сброшен.');
+              } else {
+                alert('Ошибка при сбросе профиля.');
+              }
+            }}
           />
         )}
       </main>
@@ -229,6 +274,7 @@ export default function Dashboard() {
       <footer className={`fixed bottom-0 left-0 right-0 bg-gray-800/80 backdrop-blur-sm border-gray-700 border-t shadow-2xl z-50`}>
         <div className="max-w-4xl mx-auto flex">
           <TabButton icon={BookOpen} label="Уроки" active={activeTab === 'lessons'} onClick={() => handleTabChange('lessons')} darkMode={true} />
+          <TabButton icon={MessageSquare} label="Ситуации" active={activeTab === 'situations'} onClick={() => handleTabChange('situations')} darkMode={true} />
           <TabButton icon={Trophy} label="Награды" active={activeTab === 'achievements'} onClick={() => handleTabChange('achievements')} darkMode={true} />
           <TabButton icon={User} label="Профиль" active={activeTab === 'profile'} onClick={() => handleTabChange('profile')} darkMode={true} />
           <TabButton icon={Sparkles} label="Admin" active={activeTab === 'admin'} onClick={() => handleTabChange('admin')} darkMode={true} />
@@ -304,7 +350,7 @@ function ModeButton({ icon: Icon, label, description, onClick, loading, darkMode
   )
 }
 
-function LessonsTab({ lessons, loading, userLevel, onStartLesson, isLessonCompleted, darkMode, onStartRandomWords, randomWordsLoading, onStartIntensive, intensiveLoading, onStartListening, listeningLoading }) {
+function LessonsTab({ lessons, loading, userLevel, user, onStartLesson, isLessonCompleted, progressData, darkMode, onStartRandomWords, randomWordsLoading, onStartIntensive, intensiveLoading, onStartListening, listeningLoading }) {
   const cardClass = darkMode
     ? 'bg-gray-800/50 border-gray-700 hover:border-purple-500'
     : 'bg-white/70 border-gray-200 hover:shadow-xl hover:border-purple-300'
@@ -347,6 +393,8 @@ function LessonsTab({ lessons, loading, userLevel, onStartLesson, isLessonComple
 
       <h2 className={`text-3xl font-bold ${textClass} mb-6 px-6`}>📚 Все уроки</h2>
 
+
+
       <div className="space-y-4">
         {lessons.length === 0 ? (
           <div className={`text-center py-16 px-6 rounded-2xl ${darkMode ? 'bg-gray-800/50' : 'bg-white/50'}`}>
@@ -356,6 +404,8 @@ function LessonsTab({ lessons, loading, userLevel, onStartLesson, isLessonComple
           </div>
         ) : lessons.map((lesson) => {
           const completed = isLessonCompleted(lesson.id)
+          const isStarted = progressData?.some(p => String(p.lesson_id) === String(lesson.id) && !p.completed); // Check if started but not completed
+
           const isRecommended = lesson.level === userLevel;
           return (
             <div key={lesson.id} className={`${cardClass} backdrop-blur-sm rounded-2xl p-5 mx-4 border-2 transition-all hover:scale-[1.01] ${isRecommended ? 'border-purple-500/50' : 'border-transparent'}`}>
@@ -369,8 +419,22 @@ function LessonsTab({ lessons, loading, userLevel, onStartLesson, isLessonComple
                   <p className={`text-sm ${textSecondaryClass} mt-1`}>{lesson.words?.length || 0} слов • {lesson.questions?.length || 0} вопросов</p>
                 </div>
                 <div className="flex items-center gap-4">
-                  {completed && <CheckCircle className="w-6 h-6 text-green-500" />}
-                  <button onClick={() => onStartLesson(lesson)} className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 py-3 rounded-xl font-semibold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 shadow-lg"><Play className="w-4 h-4" /></button>
+                  {completed ? (
+                    <div className="flex flex-col items-center">
+                      <CheckCircle className="w-6 h-6 text-green-500" />
+                      <span className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Пройдено</span>
+                    </div>
+                  ) : isStarted ? (
+                    <div className="flex flex-col items-center">
+                      <Eye className="w-6 h-6 text-yellow-500" />
+                      <span className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider">Начат</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center px-2">
+                      <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full font-bold uppercase tracking-wider">New</span>
+                    </div>
+                  )}
+                  <button onClick={() => onStartLesson(lesson)} className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 py-3 rounded-xl font-semibold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 shadow-lg"><Play className="w-4 h-4" /> {isStarted ? 'Продолжить' : 'Начать'}</button>
                 </div>
               </div>
             </div>
@@ -388,7 +452,7 @@ function LessonsTab({ lessons, loading, userLevel, onStartLesson, isLessonComple
   )
 }
 
-function ProfileTab({ user, darkMode }) {
+function ProfileTab({ user, progressData, lessons, darkMode }) {
   const cardClass = darkMode ? 'bg-gray-800' : 'bg-white'
   const textClass = darkMode ? 'text-white' : 'text-gray-800'
   const textSecondaryClass = darkMode ? 'text-gray-400' : 'text-gray-500'
@@ -398,6 +462,8 @@ function ProfileTab({ user, darkMode }) {
   const [name, setName] = useState(user?.name || '')
   const updateProfile = useUserStore((state) => state.updateProfile)
 
+  const [showAvatarSelector, setShowAvatarSelector] = useState(false)
+
   const handleNameUpdate = async () => {
     if (name.trim() === '') return;
     await updateProfile({ name: name.trim() });
@@ -405,17 +471,29 @@ function ProfileTab({ user, darkMode }) {
     sounds.playSuccess();
   }
 
-  const daysSinceRegistration = user?.created_at ? Math.max(1, Math.floor((new Date() - new Date(user.created_at)) / (1000 * 60 * 60 * 24))) : 1;
-  const averageWordsPerDay = Math.round((user?.total_words || 0) / daysSinceRegistration);
+  const handleAvatarUpdate = async (emoji) => {
+    await updateProfile({ avatar: emoji });
+    setShowAvatarSelector(false);
+    sounds.playSuccess();
+  }
+
+  const AVATARS = ['👤', '👩‍🚀', '👨‍🚀', '🧙‍♂️', '🧙‍♀️', '🧛‍♂️', '🧜‍♀️', '🧝‍♂️', '🦊', '🐱', '🐶', '🦁', '🐯', '🐻', '🐼', '🐨', '🐸', '🐙', '🦄', '🐲', '👽', '🤖', '👻', '🦖', '🤠', '🎃', '🍄', '🌺', '🌻', '🌲', '⚡', '🔥', '💧', '❄️', '⭐', '🎵', '🎨', '⚽', '🚀', '🎮'];
 
   return (
-    <div className="p-6">
+    <div className="p-6 relative">
       <h2 className={`text-2xl font-bold ${textClass} mb-6`}>👤 Профиль</h2>
-      <div className={`${cardClass} rounded-2xl p-6 shadow-xl`}>
+      <div className={`${cardClass} rounded-2xl p-6 shadow-xl mb-6`}>
         <div className="text-center mb-6">
-          <div className={`w-24 h-24 ${darkMode ? 'bg-blue-900' : 'bg-blue-100'} rounded-full mx-auto flex items-center justify-center mb-4`}>
-            <span className="text-4xl">👤</span>
+          <div
+            onClick={() => setShowAvatarSelector(true)}
+            className={`w-24 h-24 ${darkMode ? 'bg-blue-900' : 'bg-blue-100'} rounded-full mx-auto flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform relative group`}
+          >
+            <span className="text-4xl">{user?.avatar || '👤'}</span>
+            <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Pencil className="w-6 h-6 text-white" />
+            </div>
           </div>
+
           {isEditingName ? (
             <div className="flex items-center gap-2 max-w-xs mx-auto">
               <input
@@ -440,9 +518,6 @@ function ProfileTab({ user, darkMode }) {
         </div>
 
         <div className="space-y-4">
-          <h4 className={`text-lg font-semibold ${textClass} mb-2`}>Статистика</h4>
-          <ProfileItem label="Всего слов изучено" value={user?.total_words || 0} darkMode={darkMode} borderClass={borderClass} />
-          <ProfileItem label="Слов в день (в среднем)" value={averageWordsPerDay} darkMode={darkMode} borderClass={borderClass} />
           <ProfileItem
             label="Дата регистрации"
             value={user?.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU') : '-'}
@@ -451,6 +526,32 @@ function ProfileTab({ user, darkMode }) {
           />
         </div>
       </div>
+
+      {/* Stats Charts */}
+      <StatsCharts progress={progressData} lessons={lessons} />
+
+      {/* Avatar Selector Modal */}
+
+      {/* Avatar Selector Modal */}
+      {showAvatarSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAvatarSelector(false)}>
+          <div className={`${cardClass} rounded-2xl p-6 shadow-2xl max-w-sm w-full border ${borderClass}`} onClick={e => e.stopPropagation()}>
+            <h3 className={`text-xl font-bold ${textClass} mb-4 text-center`}>Выберите аватарку</h3>
+            <div className="grid grid-cols-5 gap-3 max-h-64 overflow-y-auto p-2 scrollbar-thin">
+              {AVATARS.map(avatar => (
+                <button
+                  key={avatar}
+                  onClick={() => handleAvatarUpdate(avatar)}
+                  className={`text-3xl p-2 rounded-lg hover:bg-white/10 transition-colors ${user?.avatar === avatar ? (darkMode ? 'bg-blue-500/30 ring-2 ring-blue-500' : 'bg-blue-100 ring-2 ring-blue-500') : ''}`}
+                >
+                  {avatar}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowAvatarSelector(false)} className={`w-full mt-4 py-3 rounded-xl font-semibold ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}>Закрыть</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

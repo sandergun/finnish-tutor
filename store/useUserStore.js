@@ -8,6 +8,9 @@ export const useUserStore = create((set, get) => ({
     loading: true,
     completedLessons: [],
     progressData: [],
+    situations: [],
+    situationProgress: [],
+    situationsLoading: false,
 
     login: (user) => {
         set({ user });
@@ -46,7 +49,7 @@ export const useUserStore = create((set, get) => ({
                 const { data: progress, error: progressError } = await supabase
                     .from('progress')
                     .select('*')
-                    .eq('user_id', data.id)
+                    .eq('user_id', data.id || data.telegram_id)
                     .order('completed_at', { ascending: true });
 
                 if (progressError) {
@@ -61,29 +64,9 @@ export const useUserStore = create((set, get) => ({
                 today.setHours(0, 0, 0, 0);
                 let updatedUser = data;
 
-                // Only update last_active if it's a new day (to track daily activity)
-                // But do NOT increment streak here
-                if (data.last_active) {
-                    const lastActiveDate = new Date(data.last_active).toDateString();
-                    const todayDate = new Date().toDateString();
+                // Removed automatic last_active update on login to prevent breaking streak calculation.
 
-                    if (lastActiveDate !== todayDate) {
-                        // Update last_active to today, but don't touch streak
-                        const { data: updated, error: updateError } = await supabase
-                            .from('users')
-                            .update({ last_active: new Date().toISOString() })
-                            .eq('telegram_id', id)
-                            .select()
-                            .single();
-
-                        if (updateError) {
-                            console.error('Error updating last_active:', JSON.stringify(updateError));
-                        } else if (updated) {
-                            updatedUser = updated;
-                            console.log('Updated last_active for new day (streak unchanged)');
-                        }
-                    }
-                } else {
+                if (!data.last_active) {
                     // First login ever - set last_active and initial streak
                     const { data: updated } = await supabase
                         .from('users')
@@ -94,11 +77,42 @@ export const useUserStore = create((set, get) => ({
                     if (updated) updatedUser = updated;
                 }
 
+                // Recalculate totals from progress to ensure accuracy
+                const calculatedTotalLessons = progress ? progress.filter(p => p.completed).length : 0;
+
+                // If there is a mismatch, update the user profile in the background
+                if (calculatedTotalLessons !== data.total_lessons) {
+                    // Update local state first
+                    updatedUser = { ...updatedUser, total_lessons: calculatedTotalLessons };
+
+                    // Fire and forget update to DB
+                    supabase.from('users').update({ total_lessons: calculatedTotalLessons }).eq('telegram_id', id).then(({ error }) => {
+                        if (error) console.error("Failed to sync total_lessons:", error);
+                    });
+                }
+
+                console.log('✅ User loaded:', updatedUser);
                 set({
                     user: updatedUser,
                     loading: false,
                     completedLessons: progress ? progress.filter(p => p.completed).map(p => p.lesson_id) : [],
                     progressData: progress || []
+                });
+
+                // Check for achievements upon login/load to catch up on any missed ones
+                // e.g. if total_lessons was updated but achievement not granted due to crash
+                const achievementsStore = useAchievementsStore.getState();
+
+                // First, load existing achievements to ensure store is populated
+                await achievementsStore.loadAchievements(updatedUser.telegram_id);
+
+                // Then check for new ones
+                achievementsStore.checkForNewAchievements(updatedUser, progress || []).then(newPoints => {
+                    if (newPoints > 0) {
+                        get().updateProfile({
+                            points: (updatedUser.points || 0) + newPoints,
+                        });
+                    }
                 });
             } else {
                 const newUser = await get().createUser(id, name);
@@ -124,6 +138,7 @@ export const useUserStore = create((set, get) => ({
                     total_lessons: 0,
                     total_words: 0,
                     points: 0,
+                    avatar: '👤',
                 }])
                 .select()
                 .single();
@@ -180,11 +195,12 @@ export const useUserStore = create((set, get) => ({
 
     saveProgress: async (lessonData) => {
         const user = get().user;
-        if (!user || !user.id) return null;
+        const userId = user?.id || user?.telegram_id;
+        if (!user || !userId) return null;
 
         try {
             const progressDataToSave = {
-                user_id: user.id,
+                user_id: userId,
                 lesson_id: lessonData.lessonId,
                 score: lessonData.score,
                 completed: lessonData.score >= 70,
@@ -195,16 +211,25 @@ export const useUserStore = create((set, get) => ({
 
             if (error) throw error;
 
-            let newTotalLessons = user.total_lessons;
-            if (lessonData.score >= 70) {
-                const { data: existing } = await supabase
-                    .from('progress')
-                    .select("lesson_id")
-                    .eq("user_id", user.id)
-                    .eq("lesson_id", lessonData.lessonId)
-                    .maybeSingle();
+            // Recalculate total_lessons based on actual unique completed lessons in progress table
+            // This is safer than incrementing
+            const { count: completedCount, error: countError } = await supabase
+                .from('progress')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', userId)
+                .eq('completed', true);
 
-                if (!existing) {
+            let newTotalLessons = completedCount || user.total_lessons;
+
+            // If the current lesson is just completed (>=70) and wasn't counted yet (race condition or latency), 
+            // force increment if we know it wasn't in the DB count yet. 
+            // actually, we just upserted it. So if we query NOW, it should be there.
+            // But let's trust the count from DB.
+            if (!countError) {
+                newTotalLessons = completedCount;
+            } else {
+                // Fallback to increment logic if count fails
+                if (lessonData.score >= 70 && !user.completedLessons?.includes(lessonData.lessonId)) {
                     newTotalLessons++;
                 }
             }
@@ -255,12 +280,17 @@ export const useUserStore = create((set, get) => ({
             const { data: updatedProgress } = await supabase
                 .from('progress')
                 .select('*')
-                .eq('user_id', user.id)
+                .eq('user_id', user.id || user.telegram_id)
                 .order('completed_at', { ascending: true });
 
             set({ progressData: updatedProgress || [] });
 
-            await useAchievementsStore.getState().checkForNewAchievements(get().user, progressDataToSave);
+            const newPoints = await useAchievementsStore.getState().checkForNewAchievements(get().user, updatedProgress || []);
+            if (newPoints > 0) {
+                await get().updateProfile({
+                    points: (get().user.points || 0) + newPoints,
+                });
+            }
 
             return true;
         } catch (error) {
@@ -269,8 +299,284 @@ export const useUserStore = create((set, get) => ({
         }
     },
 
-    isLessonCompleted: (lessonId) => {
-        const completedLessons = get().completedLessons;
-        return completedLessons.includes(lessonId);
+    startLesson: async (lessonId) => {
+        const user = get().user;
+        const userId = user?.id || user?.telegram_id;
+        if (!user || !userId) return;
+
+        // Check if progress already exists
+        const existingProgress = get().progressData.find(p => p.lesson_id === lessonId);
+        if (existingProgress) return;
+
+        try {
+            const progressDataToSave = {
+                user_id: userId,
+                lesson_id: lessonId,
+                score: 0,
+                completed: false,
+                completed_at: new Date().toISOString(),
+            };
+
+            const { error } = await supabase.from('progress').insert([progressDataToSave]);
+
+            if (error) throw error;
+
+            // Update local state immediately
+            const { data: updatedProgress } = await supabase
+                .from('progress')
+                .select('*')
+                .eq('user_id', userId)
+                .order('completed_at', { ascending: true });
+
+            set({ progressData: updatedProgress || [] });
+
+        } catch (error) {
+            console.error('❌ Error starting lesson:', error);
+        }
     },
+
+    isLessonCompleted: (lessonId) => {
+        const progressData = get().progressData;
+        if (!progressData) return false;
+        return progressData.some(p => String(p.lesson_id) === String(lessonId) && p.completed);
+    },
+
+    refreshProgress: async () => {
+        const user = get().user;
+        const userId = user?.id || user?.telegram_id;
+
+        // If user is missing or doesn't have an ID, we can't refresh progress reliably
+        if (!user || !userId) {
+            console.warn('⚠️ Cannot refresh progress: User ID missing', user);
+            return;
+        }
+
+        try {
+            const { data: progress, error } = await supabase
+                .from('progress')
+                .select('*')
+                .eq('user_id', userId)
+                .order('completed_at', { ascending: true });
+
+            if (error) throw error;
+
+            set({
+                completedLessons: progress ? progress.filter(p => p.completed).map(p => p.lesson_id) : [],
+                progressData: progress || []
+            });
+            console.log('🔄 Progress refreshed manually');
+        } catch (error) {
+            console.error('❌ Error refreshing progress FULL:', JSON.stringify(error, null, 2));
+            console.error('❌ Error details:', error);
+            if (error.message) console.error('❌ Error message:', error.message);
+            if (error.details) console.error('❌ Error details:', error.details);
+            if (error.hint) console.error('❌ Error hint:', error.hint);
+        }
+    },
+
+    subscribeToProgress: () => {
+        const user = get().user;
+        const userId = user?.id || user?.telegram_id;
+        if (!user || !userId) return () => { };
+
+        console.log('📡 Subscribing to progress changes for user:', userId);
+
+        const subscription = supabase
+            .channel('progress_changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*', // Listen to INSERT, UPDATE, DELETE
+                    schema: 'public',
+                    table: 'progress',
+                    filter: `user_id=eq.${userId}`,
+                },
+                (payload) => {
+                    console.log('🔔 Realtime progress update received:', payload);
+                    // Trigger a full refresh to ensure consistency
+                    get().refreshProgress();
+                }
+            )
+            .subscribe();
+
+        // Return unsubscribe function
+        return () => {
+            console.log('🔕 Unsubscribing from progress changes');
+            supabase.removeChannel(subscription);
+        };
+    },
+
+    resetProfile: async () => {
+        const user = get().user;
+        const userId = user?.id || user?.telegram_id;
+        if (!user || !userId) return false;
+
+        try {
+            console.log('🧨 STARTING PROFILE RESET FOR:', userId);
+
+            // 1. Delete all progress
+            const { error: progressError } = await supabase
+                .from('progress')
+                .delete()
+                .eq('user_id', userId);
+
+            if (progressError) throw progressError;
+
+            // 2. Delete all achievements
+            const { error: achievementsError } = await supabase
+                .from('user_achievements')
+                .delete()
+                .eq('telegram_id', userId);
+
+            if (achievementsError) throw achievementsError;
+
+            // 3. Reset user stats
+            const { data: updatedUser, error: userError } = await supabase
+                .from('users')
+                .update({
+                    level: 'A0',
+                    streak: 0,
+                    total_lessons: 0,
+                    total_words: 0,
+                    points: 0,
+                    last_active: null // Clear last active to fully reset streak logic
+                })
+                .eq('telegram_id', userId)
+                .select()
+                .single();
+
+            if (userError) throw userError;
+
+            // 4. Update local state
+            set({
+                user: updatedUser,
+                completedLessons: [],
+                progressData: []
+            });
+
+            // 5. Clear achievements store locally
+            useAchievementsStore.getState().clearLastEarned();
+            // Reload achievements to reflect empty state (or manually clear)
+            useAchievementsStore.setState({ achievements: [] });
+            // Better to reload to keep structure but mark all as unearned
+            await useAchievementsStore.getState().loadAchievements(userId);
+
+            console.log('✅ PROFILE RESET COMPLETE');
+            return true;
+
+        } catch (error) {
+            console.error('❌ Error resetting profile:', error);
+            return false;
+        }
+    },
+
+    // --- SITUATIONS ACTIONS ---
+
+    loadSituations: async () => {
+        set({ situationsLoading: true });
+        const { data, error } = await supabase
+            .from('situations')
+            .select('*')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error loading situations:', error);
+            set({ situationsLoading: false });
+            return;
+        }
+
+        set({ situations: data, situationsLoading: false });
+    },
+
+    loadSituationProgress: async () => {
+        const user = get().user;
+        const userId = user?.id || user?.telegram_id;
+        if (!userId) return;
+
+        const { data, error } = await supabase
+            .from('user_situation_progress')
+            .select('*')
+            .eq('user_id', userId);
+
+        if (error) {
+            console.error('Error loading situation progress:', error);
+            return;
+        }
+
+        set({ situationProgress: data || [] });
+    },
+
+    saveSituationProgress: async (situationId, step, completed = false) => {
+        const user = get().user;
+        const userId = user?.id || user?.telegram_id;
+        if (!userId) return;
+
+        const { error } = await supabase
+            .from('user_situation_progress')
+            .upsert({
+                user_id: userId,
+                situation_id: situationId,
+                current_step: step,
+                completed: completed,
+                completed_at: completed ? new Date().toISOString() : null,
+                last_updated: new Date().toISOString()
+            }, { onConflict: ['user_id', 'situation_id'] });
+
+        if (error) console.error('Error saving situation progress:', JSON.stringify(error, null, 2));
+
+        // Refresh local progress state
+        await get().loadSituationProgress();
+
+        if (completed) {
+            // Add HP or XP?
+            // For now just logging.
+            console.log('Situation completed!');
+        }
+    },
+
+    createSituation: async (situationData) => {
+        // Admin only usually, but we put it here for convenience or Move to AdminPanel
+        const { data, error } = await supabase
+            .from('situations')
+            .insert([situationData])
+            .select()
+            .single();
+
+        if (error) throw error;
+        // Refresh list
+        await get().loadSituations();
+        return data;
+    },
+
+    deleteSituation: async (id) => {
+        const { error } = await supabase
+            .from('situations')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        // Refresh list
+        await get().loadSituations();
+    },
+
+    deleteAllSituations: async () => {
+        const { error } = await supabase
+            .from('situations')
+            .delete()
+            .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all by checking id is not a dummy UUID
+
+        if (error) throw error;
+        await get().loadSituations();
+    },
+
+    deleteSituations: async (ids) => {
+        const { error } = await supabase
+            .from('situations')
+            .delete()
+            .in('id', ids);
+
+        if (error) throw error;
+        await get().loadSituations();
+    }
 }));

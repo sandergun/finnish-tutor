@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { sounds } from '@/lib/sounds';
-import { ArrowLeft, Volume2 } from 'lucide-react';
+import { ArrowLeft, Volume2, SkipForward } from 'lucide-react';
 import { speak } from '@/lib/googleTTS';
 
 // Helper function to shuffle an array
@@ -109,6 +109,11 @@ export default function ExercisesBlock({ question, allWords, onNext, onBack, onR
             sounds.playWrong();
         }
         if (onResult) onResult(isCorrect);
+    };
+
+    const handleSkip = () => {
+        setFeedback('skipped');
+        if (onResult) onResult('skip');
     };
 
     // Fallback translation helper - also extracts from question text for assemble mode
@@ -274,6 +279,21 @@ export default function ExercisesBlock({ question, allWords, onNext, onBack, onR
                 </div>
             )}
 
+            {feedback === 'skipped' && (
+                <div className="w-full mt-6 p-4 rounded-xl bg-yellow-50 text-yellow-900 border border-yellow-200 flex flex-col items-center">
+                    <p className="font-bold text-lg mb-2">Пропущено</p>
+                    <div className="mt-2 p-3 bg-white rounded-lg border border-yellow-200 w-full">
+                        <p className="text-sm text-gray-500 mb-1">Правильный ответ:</p>
+                        <div className="flex items-center justify-center gap-2">
+                            <p className="text-lg font-medium text-gray-800">{question.correct}</p>
+                            <button onClick={() => speakPhrase(question.correct)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full flex-shrink-0">
+                                <Volume2 className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="w-full mt-8 flex gap-4">
                 <button
                     onClick={onBack}
@@ -292,6 +312,12 @@ export default function ExercisesBlock({ question, allWords, onNext, onBack, onR
                 ) : (
                     <button onClick={onNext} className="flex-grow bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all transform active:scale-98">
                         Продолжить
+                    </button>
+                )}
+
+                {!feedback && (
+                    <button onClick={handleSkip} className="p-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors" title="Пропустить">
+                        <SkipForward className="w-6 h-6" />
                     </button>
                 )}
             </div>

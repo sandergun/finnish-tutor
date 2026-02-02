@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Volume2, ArrowRight, ArrowLeft, Moon, Sun, CheckCircle, XCircle, Sparkles, Zap, Book, X, HelpCircle, RotateCcw, SkipForward, Eye, MessageSquare, GraduationCap, Brain, Globe } from 'lucide-react'
+import { Volume2, ArrowRight, ArrowLeft, Moon, Sun, CheckCircle, XCircle, Sparkles, Zap, Book, X, HelpCircle, RotateCcw, SkipForward, Eye, MessageSquare, GraduationCap, Brain, Globe, Lightbulb } from 'lucide-react'
 import { speak } from '@/lib/googleTTS'
 import { sounds } from '@/lib/sounds'
 import WordStudyBlock from './WordStudyBlock'
@@ -17,7 +17,7 @@ const shuffleArray = (array) => {
   return [...array].sort(() => Math.random() - 0.5);
 }
 
-const WORDS_PER_CYCLE = 3;
+
 const QUESTIONS_PER_CYCLE = 3;
 const FINAL_QUIZ_QUESTIONS = 2;
 
@@ -164,22 +164,29 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
   const [currentBlock, setCurrentBlock] = useState('word-study');
   const [currentCycleIndex, setCurrentCycleIndex] = useState(0);
 
-  // Debug: log lesson data
-  console.log('📚 LessonPlayer received:', {
-    id: rawLesson?.id,
-    title: rawLesson?.title,
-    type: rawLesson?.type,
-    hasTheory: !!rawLesson?.theory,
-    theoryLength: rawLesson?.theory?.length || 0,
-    hasDialogues: !!rawLesson?.mini_dialogues?.length,
-    dialoguesCount: rawLesson?.mini_dialogues?.length || 0,
-  });
+  // Normalize lesson data (AI lessons store data in lesson_data, or already normalized by lib/lessonsData.js)
+  const data = useMemo(() => {
+    return {
+      ...rawLesson,
+      ...(rawLesson?.lesson_data || {})
+    };
+  }, [rawLesson]);
+
+  // Debug: log normalized data to verify fact presence
+  useEffect(() => {
+    console.log('📚 LessonPlayer data initialized:', {
+      title: data.title,
+      hasTheory: !!data.theory,
+      hasFact: !!data.finnish_fact,
+      factValue: data.finnish_fact?.substring(0, 30) + '...'
+    });
+  }, [data]);
 
   // 1. Dynamic Question Generation
   // Ensure we have "choice", "assemble" (translate), "fill-in" questions even if lesson data is sparse.
   const generatedQuestions = useMemo(() => {
     const gen = [];
-    const lessonWords = rawLesson?.words || [];
+    const lessonWords = data?.words || [];
 
     lessonWords.forEach((word) => {
       // 1. Choice ("How to say X?")
@@ -220,13 +227,13 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
       }
     });
     return gen;
-  }, [rawLesson]);
+  }, [data]);
 
   const { words, questions, dialogues } = useMemo(() => {
-    const lessonWords = rawLesson?.words || [];
+    const lessonWords = data?.words || [];
 
     // Combine static questions with generated ones
-    const staticQuestions = (rawLesson?.questions || [])
+    const staticQuestions = (data?.questions || [])
       .filter(q => q.type !== 'audio-choice')
       .map(q => {
         let correctString = null;
@@ -260,13 +267,15 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
     return { words: lessonWords, questions: allQuestions, dialogues: lessonDialogues };
   }, [rawLesson, generatedQuestions]);
 
-  // Unified flow: 4 words per cycle
-  const WORDS_PER_CYCLE = 4;
-
-  const wordChunks = [];
-  for (let i = 0; i < words.length; i += WORDS_PER_CYCLE) {
-    wordChunks.push(words.slice(i, i + WORDS_PER_CYCLE));
-  }
+  // Unified flow: 4 words per cycle (or all if random mode)
+  const wordChunks = useMemo(() => {
+    const perCycle = rawLesson.isRandomMode ? 50 : 4;
+    const chunks = [];
+    for (let i = 0; i < words.length; i += perCycle) {
+      chunks.push(words.slice(i, i + perCycle));
+    }
+    return chunks;
+  }, [words, rawLesson.isRandomMode]);
 
   // 1. Logic for Cycles with Cumulative Review
   // Block N: 4 new words + 1 random from Block N-1 (if exists)
@@ -394,6 +403,7 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
   const [lastShuffledCycleIndex, setLastShuffledCycleIndex] = useState(-1);
 
   const handleResult = (isCorrect) => {
+    if (isCorrect === 'skip') return; // Don't count skipped questions in stats
     setScoreStats(prev => ({
       correct: prev.correct + (isCorrect ? 1 : 0),
       total: prev.total + 1
@@ -424,13 +434,13 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
   useEffect(() => {
     if (mounted) {
       const progress = {
-        lessonId: rawLesson.id,
+        lessonId: data.id,
         cycleIndex: currentCycleIndex,
         block: currentBlock,
       };
       localStorage.setItem('lessonProgress', JSON.stringify(progress));
     }
-  }, [currentCycleIndex, currentBlock, rawLesson.id, mounted]);
+  }, [currentCycleIndex, currentBlock, data.id, mounted]);
 
   const userInput = useMemo(() => userWords.join(' '), [userWords]);
 
@@ -442,7 +452,7 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
     const savedProgress = localStorage.getItem('lessonProgress');
     if (savedProgress) {
       const { lessonId, cycleIndex, block } = JSON.parse(savedProgress);
-      if (lessonId === rawLesson.id) {
+      if (lessonId === data.id) {
         setCurrentCycleIndex(cycleIndex);
         setCurrentBlock(block);
         return; // Exit early if progress was restored
@@ -450,18 +460,18 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
     }
 
     // Fresh start - determine initial block
-    if (rawLesson.isListeningMode) {
+    if (data.isListeningMode) {
       setCurrentBlock('listening-task');
       return;
     }
 
     // If lesson has theory, start with theory (regardless of cycles being ready)
-    if (rawLesson.theory) {
+    if (data.theory) {
       setCurrentBlock('theory');
     } else {
       setCurrentBlock('word-study');
     }
-  }, [rawLesson.id, rawLesson.theory, rawLesson.isListeningMode]);
+  }, [data.id, data.theory, data.isListeningMode]);
 
   // Get current cycle, word, and question based on indices
   const currentCycle = useMemo(() => cycles[currentCycleIndex], [cycles, currentCycleIndex]);
@@ -515,7 +525,7 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
     const order = [];
 
     // Add theory block only for the first cycle and if lesson has theory
-    if (currentCycleIndex === 0 && rawLesson.theory) {
+    if (currentCycleIndex === 0 && data.theory) {
       order.push('theory');
     }
 
@@ -750,7 +760,27 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
       setCurrentBlock(blockOrder[prevBlockIndex]);
     } else {
       // Go to previous cycle
-      console.log('Cannot go back to previous cycle yet');
+      if (currentCycleIndex > 0) {
+        setCurrentCycleIndex(currentCycleIndex - 1);
+        // We need to set the block to the LAST block of the previous cycle.
+        // However, blockOrder is derived from currentCycleIndex. 
+        // We can't know the last block of the previous cycle easily without render.
+        // But we observe a pattern:
+        // Cycle 0: theory (maybe), word-study, mini-test
+        // Cycle >=1: word-study, mini-test, [mini-dialogue], [exercises]
+
+        // Strategy: Set a temporary flag or just default to 'word-study' (start of prev cycle)?
+        // User probably wants to go back to the *end* of the previous cycle.
+        // But going to start of previous cycle is safer/easier.
+        // Let's try to determine the last block type based on data.
+
+        // Actually, let's just go to 'mini-test' or 'exercises' if available?
+        // Simplest valid navigation: Go to 'word-study' of previous cycle.
+        // This is less disorienting than jumping to the end of a previous cycle.
+        setCurrentBlock('word-study');
+      } else {
+        console.log('Already at the start of the lesson');
+      }
     }
   }
 
@@ -760,15 +790,15 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
     }
 
     // Special handling for Listening Mode - no cycles, just questions from lesson
-    if (rawLesson.isListeningMode) {
-      const listeningQuestions = rawLesson.questions || [];
+    if (data.isListeningMode) {
+      const listeningQuestions = data.questions || [];
       return <ListeningModePlayer questions={listeningQuestions} onNext={handleNextBlock} />;
     }
 
     if (!currentCycle) {
       return <div>Загрузка...</div>;
     }
-    const isIntensiveMode = rawLesson.id.startsWith('intensive-');
+    const isIntensiveMode = data.id.startsWith('intensive-');
 
     switch (currentBlock) {
       case 'theory':
@@ -778,20 +808,35 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
               <span className="text-sm font-medium text-purple-500 uppercase tracking-widest">📚 Теория урока</span>
             </div>
             <div className="flex-1 overflow-y-auto">
+              {/* Separate Finnish Fact Block */}
+              {data.finnish_fact && (
+                <div className={`mb-6 p-4 rounded-xl border flex gap-4 items-start ${darkMode ? 'bg-blue-900/20 border-blue-800/50' : 'bg-blue-50 border-blue-100'}`}>
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${darkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
+                    <Lightbulb className="w-5 h-5 text-yellow-500" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className={`text-xs font-bold uppercase tracking-widest ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Знаете ли вы?</p>
+                    <p className={`text-sm leading-relaxed italic ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      {data.finnish_fact}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="prose prose-lg dark:prose-invert max-w-none">
                 <p className="text-lg text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
-                  {rawLesson.theory}
+                  {data.theory}
                 </p>
               </div>
 
               {/* Show first mini-dialogue as example if available */}
-              {rawLesson.mini_dialogues && rawLesson.mini_dialogues[0] && (
+              {data.mini_dialogues && data.mini_dialogues[0] && (
                 <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
                   <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3">
                     💬 Пример диалога по теме:
                   </p>
                   <div className="space-y-2">
-                    {rawLesson.mini_dialogues[0].lines?.slice(0, 4).map((line, idx) => (
+                    {data.mini_dialogues[0].lines?.slice(0, 4).map((line, idx) => (
                       <div key={idx} className={`flex ${idx % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
                         <div className={`max-w-[80%] p-3 rounded-xl ${idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-blue-100 dark:bg-blue-900/40'}`}>
                           <div className="flex items-center gap-2">
@@ -818,7 +863,7 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
           </div>
         );
       case 'word-study':
-        if (rawLesson.isRandomMode) {
+        if (data.isRandomMode) {
           return <WordStudyBlock
             words={currentCycle.words}
             onNext={handleNextBlock}
@@ -932,7 +977,7 @@ export default function LessonPlayer({ lesson: rawLesson, onComplete, onClose })
           </button>
 
           <h2 className={`text-xl font-bold text-center ${textClass} opacity-90`}>
-            {rawLesson.title}
+            {data.title}
           </h2>
           <button
             onClick={onClose}

@@ -42,8 +42,17 @@ export default function Home() {
       } else {
         // Fallback for development outside Telegram
         console.warn("Telegram Web App context not found. Running in dev mode with mock user.");
-        const MOCK_USER_ID = 123456789;
-        const MOCK_USER_NAME = "Dev User";
+
+        let devUserId = localStorage.getItem('dev_user_id');
+        if (!devUserId) {
+          // Generate a random ID between 100000000 and 999999999
+          devUserId = Math.floor(100000000 + Math.random() * 900000000).toString();
+          localStorage.setItem('dev_user_id', devUserId);
+        }
+
+        const MOCK_USER_ID = parseInt(devUserId);
+        const MOCK_USER_NAME = `Dev User ${MOCK_USER_ID.toString().slice(-4)}`;
+
         await loadUser(MOCK_USER_ID, MOCK_USER_NAME);
         loadAchievements(MOCK_USER_ID);
       }
@@ -54,17 +63,17 @@ export default function Home() {
   }, [loadUser, loadAchievements])
 
   if (!mounted || loading) {
-    const bgClass = darkMode 
-      ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900' 
+    const bgClass = darkMode
+      ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900'
       : 'bg-gradient-to-br from-blue-500 via-purple-500 to-blue-700'
-    
+
     return (
       <div className={`flex items-center justify-center min-h-screen ${bgClass} transition-colors duration-300`}>
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className={`absolute top-20 right-20 w-96 h-96 rounded-full blur-3xl opacity-20 ${darkMode ? 'bg-blue-600' : 'bg-purple-400'}`}></div>
           <div className={`absolute bottom-20 left-20 w-96 h-96 rounded-full blur-3xl opacity-20 ${darkMode ? 'bg-purple-600' : 'bg-blue-400'}`}></div>
         </div>
-        
+
         <div className="text-white text-center relative z-10">
           <div className="text-8xl mb-6 animate-bounce">🇫🇮</div>
           <div className="text-2xl font-semibold mb-4">Oppaan</div>

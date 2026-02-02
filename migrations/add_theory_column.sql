@@ -1,0 +1,1 @@
+ALTER TABLE situations ADD COLUMN IF NOT EXISTS theory TEXT;

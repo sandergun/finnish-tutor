@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Volume2, ArrowLeft } from 'lucide-react';
+import { Volume2, ArrowLeft, SkipForward } from 'lucide-react';
 import { speak } from '@/lib/googleTTS';
 import { sounds } from '@/lib/sounds';
 
@@ -62,6 +62,11 @@ export default function MiniDialogueBlock({ dialogue, onNext, onBack, onResult }
       sounds.playWrong();
     }
     if (onResult) onResult(isCorrect);
+  };
+
+  const handleSkip = () => {
+    setFeedback('skipped');
+    if (onResult) onResult('skip');
   };
 
   const handleNextLine = () => {
@@ -155,13 +160,31 @@ export default function MiniDialogueBlock({ dialogue, onNext, onBack, onResult }
         <div id="chat-anchor" className="h-1" />
       </div>
 
-      <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+      <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex gap-3">
+        <button
+          onClick={() => {
+            if (currentLineIndex > 0) {
+              sounds.playClick();
+              setFeedback(null);
+              setSelectedOption(null);
+              setShowOptions(false);
+              setOptions([]);
+              setCurrentLineIndex(prev => prev - 1);
+            } else if (onBack) {
+              onBack();
+            }
+          }}
+          className="p-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+
         {currentLineIndex % 2 === 0 ? (
-          <button onClick={handleNextLine} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all">
+          <button onClick={handleNextLine} className="flex-grow bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all">
             Далее
           </button>
         ) : (
-          <div className="space-y-4">
+          <div className="flex-grow space-y-4">
             {feedback ? (
               <button onClick={handleNextLine} className={`w-full font-bold py-4 rounded-xl shadow-lg transition-all ${currentLineIndex < dialogue.lines.length - 1
                 ? 'bg-gradient-to-r from-green-500 to-teal-500 text-white'
@@ -193,13 +216,22 @@ export default function MiniDialogueBlock({ dialogue, onNext, onBack, onResult }
                     </div>
                   ))}
                 </div>
-                <button
-                  onClick={handleCheck}
-                  disabled={!selectedOption}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wide"
-                >
-                  Проверить
-                </button>
+                <div className="flex gap-2 w-full mt-2">
+                  <button
+                    onClick={handleCheck}
+                    disabled={!selectedOption}
+                    className="flex-grow bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wide"
+                  >
+                    Проверить
+                  </button>
+                  <button
+                    onClick={handleSkip}
+                    className="p-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors"
+                    title="Пропустить"
+                  >
+                    <SkipForward className="w-6 h-6" />
+                  </button>
+                </div>
               </>
             )}
           </div>

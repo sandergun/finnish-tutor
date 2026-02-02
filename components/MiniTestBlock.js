@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowLeft, SkipForward } from 'lucide-react';
 import { sounds } from '@/lib/sounds';
 
 export default function MiniTestBlock({ questions, onNext, onBack, onResult, isIntensiveMode }) {
@@ -71,6 +71,12 @@ export default function MiniTestBlock({ questions, onNext, onBack, onResult, isI
       sounds.playWrong();
     }
     if (onResult) onResult(isCorrect);
+  };
+
+  const handleSkip = () => {
+    setFeedback('skipped');
+    // Don't play wrong sound
+    if (onResult) onResult('skip');
   };
 
   const handleNext = () => {
@@ -163,7 +169,15 @@ export default function MiniTestBlock({ questions, onNext, onBack, onResult, isI
       {feedback === 'correct' && (
         <div className="mt-4 p-4 rounded-lg bg-green-900 text-white flex items-center">
           <CheckCircle className="mr-2" />
-          <p>Правильно!</p>
+          <p>Правильный ответ!</p>
+        </div>
+      )}
+
+      {feedback === 'skipped' && (
+        <div className="mt-4 p-4 rounded-lg bg-yellow-900/50 text-white border border-yellow-700">
+          <p className="font-semibold text-yellow-200">Пропущено</p>
+          <p>Правильный ответ: {correctAnswer}</p>
+          <p>Перевод: {getTranslation(currentQuestion)}</p>
         </div>
       )}
 
@@ -181,6 +195,12 @@ export default function MiniTestBlock({ questions, onNext, onBack, onResult, isI
         ) : (
           <button onClick={handleNext} className="flex-grow w-full bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-4 rounded-xl">
             {currentQuestionIndex < questions.length - 1 ? 'Следующий вопрос' : 'Продолжить'}
+          </button>
+        )}
+
+        {!feedback && (
+          <button onClick={handleSkip} className="p-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors" title="Пропустить">
+            <SkipForward className="w-6 h-6" />
           </button>
         )}
       </div>

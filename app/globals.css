@@ -24,3 +24,7 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+code {
+  @apply bg-gray-800/80 text-purple-300 px-1.5 py-0.5 rounded border border-gray-700 font-mono text-sm;
+}

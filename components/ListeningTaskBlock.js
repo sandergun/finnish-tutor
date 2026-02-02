@@ -163,13 +163,19 @@ export default function ListeningTaskBlock({ question, onNext, onBack, isIntensi
         </div>
       )}
 
-      <div className="mt-6">
+      <div className="mt-6 flex gap-4">
+        <button
+          onClick={onBack}
+          className="p-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </button>
         {!feedback ? (
-          <button onClick={handleCheck} disabled={!selectedAnswer} className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold py-4 rounded-xl disabled:opacity-50">
+          <button onClick={handleCheck} disabled={!selectedAnswer} className="flex-grow bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold py-4 rounded-xl disabled:opacity-50">
             Проверить
           </button>
         ) : (
-          <button onClick={handleNext} className="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-4 rounded-xl">
+          <button onClick={handleNext} className="flex-grow bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold py-4 rounded-xl">
             Продолжить
           </button>
         )}

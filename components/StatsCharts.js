@@ -16,10 +16,10 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { 
-  TrendingUp, 
-  Target, 
-  Zap, 
+import {
+  TrendingUp,
+  Target,
+  Zap,
   Award,
   Calendar,
   Clock,
@@ -38,7 +38,7 @@ const COLORS = {
 
 const CHART_COLORS = ['#a855f7', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
-export default function StatsCharts({ progress = [] }) {
+export default function StatsCharts({ progress = [], lessons = [] }) {
   // Обработка данных
   const stats = useMemo(() => {
     if (!progress || progress.length === 0) {
@@ -64,16 +64,19 @@ export default function StatsCharts({ progress = [] }) {
     // Прогресс по уровням
     const levelMap = {};
     progress.forEach(p => {
-      if (!levelMap[p.level]) {
-        levelMap[p.level] = { total: 0, completed: 0 };
+      const lesson = lessons.find(l => String(l.id) === String(p.lesson_id));
+      const level = lesson?.level || 'Unknown';
+
+      if (!levelMap[level]) {
+        levelMap[level] = { total: 0, completed: 0 };
       }
-      levelMap[p.level].total++;
-      if (p.completed) levelMap[p.level].completed++;
+      levelMap[level].total++;
+      if (p.completed) levelMap[level].completed++;
     });
 
     const levelProgress = Object.keys(levelMap).map(level => ({
       level,
-      progress: levelMap[level].total > 0 
+      progress: levelMap[level].total > 0
         ? Math.round((levelMap[level].completed / levelMap[level].total) * 100)
         : 0,
       completed: levelMap[level].completed,
@@ -153,9 +156,32 @@ export default function StatsCharts({ progress = [] }) {
       recentActivity: progress
         .filter(p => p.completed)
         .sort((a, b) => new Date(b.completed_at || b.updated_at) - new Date(a.completed_at || a.updated_at))
-        .slice(0, 5),
+        .slice(0, 5)
+        .map(p => {
+          const lesson = lessons.find(l => String(l.id) === String(p.lesson_id));
+          let title = lesson?.title;
+
+          if (!title) {
+            const lessonId = String(p.lesson_id);
+            if (lessonId.startsWith('random-words-')) title = 'Случайные слова';
+            else if (lessonId.startsWith('intensive-')) title = 'Интенсивная тренировка';
+            else if (lessonId.startsWith('listening-')) title = 'Аудирование';
+            else if (lessonId.length > 20) {
+              // Heuristic: it's likely a UUID for an AI lesson
+              title = `AI Урок #${lessonId.substring(0, 5)}`;
+            } else {
+              title = `Урок ${lessonId}`;
+            }
+          }
+
+          return {
+            ...p,
+            lesson_title: title,
+            lesson_number: lesson?.number || p.lesson_id
+          };
+        }),
     };
-  }, [progress]);
+  }, [progress, lessons]);
 
   const StatCard = ({ icon: Icon, label, value, color, subtitle }) => (
     <div className={`bg-gradient-to-br from-${color}-500/10 to-${color}-600/5 rounded-2xl p-6 border border-${color}-500/20`}>
@@ -246,38 +272,7 @@ export default function StatsCharts({ progress = [] }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Прогресс по уровням */}
-      <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5 text-blue-400" />
-          <h3 className="text-xl font-bold text-white">Прогресс по уровням</h3>
-        </div>
-        {stats.levelProgress.length > 0 ? (
-          <div className="space-y-4">
-            {stats.levelProgress.map((level, idx) => (
-              <div key={level.level}>
-                <div className="flex justify-between mb-2">
-                  <span className="text-white font-medium">{level.level}</span>
-                  <span className="text-gray-400 text-sm">
-                    {level.completed}/{level.total} ({level.progress}%)
-                  </span>
-                </div>
-                <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${level.progress}%`,
-                      background: `linear-gradient(90deg, ${CHART_COLORS[idx % CHART_COLORS.length]}, ${CHART_COLORS[(idx + 1) % CHART_COLORS.length]})`,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-400 text-center py-8">Начните изучать уроки, чтобы увидеть прогресс</p>
-        )}
-      </div>
+
 
       {/* Распределение оценок */}
       {stats.scoreDistribution.length > 0 && (
