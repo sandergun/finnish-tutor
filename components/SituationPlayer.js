@@ -425,37 +425,37 @@ export default function SituationPlayer({ situation, onClose, onComplete, initia
                     ${status === 'correct' ? 'bg-green-900/20 border-green-900/30' :
                         status === 'incorrect' ? 'bg-red-900/20 border-red-900/30' : ''}`}
                 >
-                    <div className="max-w-lg mx-auto flex items-center gap-4">
+                    <div className="max-w-lg mx-auto flex items-center gap-2 sm:gap-4">
                         {status === 'idle' || status === 'incorrect' ? (
                             <>
                                 <button
                                     onClick={() => setShowHint(prev => !prev)}
-                                    className={`p-4 rounded-xl transition ${showHint ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-800 hover:bg-gray-700 text-gray-400'}`}
+                                    className={`p-3 sm:p-4 rounded-xl transition ${showHint ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-800 hover:bg-gray-700 text-gray-400'}`}
                                     title={showHint ? "Скрыть подсказку" : "Показать подсказку"}
                                 >
                                     <HelpCircle className="w-6 h-6" />
                                 </button>
                                 <button
                                     onClick={() => speak(currentStep.expected_fi[0], 'fi-FI')}
-                                    className="p-4 rounded-xl bg-gray-800 hover:bg-gray-700 text-blue-400 transition shadow-sm flex items-center gap-2 font-bold px-6"
+                                    className="p-3 sm:p-4 rounded-xl bg-gray-800 hover:bg-gray-700 text-blue-400 transition shadow-sm flex items-center justify-center gap-1 sm:gap-2 font-bold px-3 sm:px-6"
                                     title="Прослушать ответ на финском"
                                 >
-                                    <Volume2 className="w-6 h-6" /> 🇫🇮
+                                    <Volume2 className="w-6 h-6" /> <span className="hidden sm:inline">🇫🇮</span>
                                 </button>
                                 <button
                                     onClick={checkAnswer}
                                     disabled={selectedWords.length === 0}
-                                    className="flex-[2] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold py-3.5 rounded-xl shadow-lg shadow-blue-900/20 transition transform active:scale-[0.98]"
+                                    className="flex-[2] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-base sm:text-lg font-bold py-3.5 rounded-xl shadow-lg shadow-blue-900/20 transition transform active:scale-[0.98]"
                                 >
                                     Проверить
                                 </button>
                                 {status !== 'correct' && (
                                     <button
                                         onClick={handleShowAnswer}
-                                        className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-500 hover:text-gray-400 text-sm font-bold py-3.5 rounded-xl transition border border-gray-700 flex items-center justify-center gap-2"
+                                        className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-500 hover:text-gray-400 text-xs sm:text-sm font-bold py-3.5 rounded-xl transition border border-gray-700 flex items-center justify-center gap-1 sm:gap-2"
                                         title="Подсмотреть ответ и продолжить"
                                     >
-                                        <ArrowRight className="w-4 h-4" /> Пропустить
+                                        <ArrowRight className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline">Пропустить</span>
                                     </button>
                                 )}
                             </>
